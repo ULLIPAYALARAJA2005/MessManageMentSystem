@@ -2,13 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import {
   FaUserCheck, FaClock, FaCheckCircle, FaSearch,
-  FaCoffee, FaEgg, FaConciergeBell, FaUtensils, FaCalendarAlt, FaChartBar
+  FaCoffee, FaEgg, FaConciergeBell, FaUtensils, FaCalendarAlt, FaChartBar, FaQrcode
 } from 'react-icons/fa';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
 import api from '../services/api';
 import { socket } from '../socket';
 
 const SECTIONS = [
+  { id: 'QR Scanner', label: '📷 QR Scanner', icon: <FaQrcode /> },
   { id: 'Morning Egg', label: '🥚 Morning Egg', icon: <FaEgg /> },
   { id: 'Morning Tea', label: 'Morning Tea / Milk', icon: <FaCoffee /> },
   { id: 'Tiffin', label: '🥞 Tiffin', icon: <FaUtensils /> },
@@ -34,6 +36,14 @@ const EmployeeDashboard = () => {
   const [studentId, setStudentId] = useState('');
   const [secretCode, setSecretCode] = useState('');
   const [verifyResult, setVerifyResult] = useState(null);
+
+  const [recentScans, setRecentScans] = useState([]);
+  const [overrideSlot, setOverrideSlot] = useState('AUTO');
+  const overrideSlotRef = React.useRef(overrideSlot);
+  
+  useEffect(() => {
+    overrideSlotRef.current = overrideSlot;
+  }, [overrideSlot]);
 
   const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0 });
   const [bookings, setBookings] = useState([]);
@@ -83,8 +93,8 @@ const EmployeeDashboard = () => {
   };
 
   useEffect(() => {
-    if (selectedSection === 'Analysis') {
-      fetchAnalysisData();
+    if (selectedSection === 'Analysis' || selectedSection === 'QR Scanner') {
+      if (selectedSection === 'Analysis') fetchAnalysisData();
     } else {
       fetchData();
     }
@@ -93,7 +103,7 @@ const EmployeeDashboard = () => {
       // Real-time update for both bookings and stats
       if (selectedSection === 'Analysis') {
         fetchAnalysisData();
-      } else {
+      } else if (selectedSection !== 'QR Scanner') {
         fetchData();
       }
     };
@@ -108,6 +118,113 @@ const EmployeeDashboard = () => {
       socket.off('bookingCancelled', handleUpdate);
     };
   }, [selectedDate, selectedSection, analysisMealType, analysisDays, analysisDuration, analysisStartDate, analysisEndDate]);
+
+  useEffect(() => {
+    let scanner = null;
+    if (selectedSection === 'QR Scanner') {
+      scanner = new Html5QrcodeScanner('reader', { qrbox: { width: 300, height: 300 }, fps: 10 }, false);
+      let lastScannedBooking = null;
+      let lastScanTime = 0;
+
+      scanner.render((decodedText) => {
+        try {
+          const data = JSON.parse(decodedText);
+          if (data.bookingId && data.mealsBooked) {
+             const now = new Date();
+             
+             // Prevent overlapping network calls for exact same scan
+             if (lastScannedBooking === data.bookingId && (now.getTime() - lastScanTime) < 5000) {
+                return;
+             }
+             lastScannedBooking = data.bookingId;
+             lastScanTime = now.getTime();
+
+             const time = now.getHours() + now.getMinutes() / 60;
+             let activeMeals = [];
+             
+             const currentOverride = overrideSlotRef.current;
+             if (currentOverride === 'AUTO') {
+               if (time >= 7 && time <= 9.5) activeMeals = ['Morning Tea', 'Morning Egg', 'Tiffin'];
+               else if (time >= 12 && time <= 14.5) activeMeals = ['Lunch', 'Lunch Egg'];
+               else if (time >= 17 && time <= 18.5) activeMeals = ['Evening Tea', 'Evening Snacks'];
+               else if (time >= 19 && time <= 21.5) activeMeals = ['Dinner', 'Dinner Egg'];
+             } else if (currentOverride === 'MORNING') {
+               activeMeals = ['Morning Tea', 'Morning Egg', 'Tiffin'];
+             } else if (currentOverride === 'LUNCH') {
+               activeMeals = ['Lunch', 'Lunch Egg'];
+             } else if (currentOverride === 'SNACKS') {
+               activeMeals = ['Evening Tea', 'Evening Snacks'];
+             } else if (currentOverride === 'DINNER') {
+               activeMeals = ['Dinner', 'Dinner Egg'];
+             }
+
+            const bookedActiveMeals = data.mealsBooked.filter(m => activeMeals.includes(m));
+
+            if (bookedActiveMeals.length > 0) {
+               const promises = bookedActiveMeals.map(meal => 
+                  api.post('/employee/complete', { bookingId: data.bookingId, section: meal })
+               );
+
+               Promise.allSettled(promises).then(results => {
+                  let successCount = 0;
+                  let alreadyCompletedCount = 0;
+
+                  results.forEach(res => {
+                     if (res.status === 'fulfilled') successCount++;
+                     else if (res.reason?.response?.data?.message === 'Already Completed') alreadyCompletedCount++;
+                  });
+
+                  const isAlreadyDone = alreadyCompletedCount === bookedActiveMeals.length;
+
+                  const newScan = {
+                     id: Math.random().toString(36).substr(2, 9),
+                     bookingId: data.bookingId,
+                     studentId: data.studentId,
+                     timeStr: now.toLocaleTimeString(),
+                     scannedAt: now,
+                     meals: bookedActiveMeals,
+                     qty: data.mealQty || {},
+                     undone: false,
+                     status: successCount > 0 ? 'Success' : (isAlreadyDone ? 'AlreadyScanned' : 'Error')
+                  };
+
+                  if (successCount > 0) {
+                     toast.success(`Provided ${bookedActiveMeals.join(', ')} to ${data.studentId}`);
+                  } else if (isAlreadyDone) {
+                     toast.error(`Already marked as completed for ${data.studentId}!`);
+                  } else {
+                     toast.error(`Error processing scan for ${data.studentId}`);
+                  }
+
+                  setRecentScans(prev => [newScan, ...prev].slice(0, 50));
+               });
+            } else {
+               const newScan = {
+                  id: Math.random().toString(36).substr(2, 9),
+                  bookingId: data.bookingId,
+                  studentId: data.studentId,
+                  timeStr: now.toLocaleTimeString(),
+                  scannedAt: now,
+                  meals: [],
+                  qty: data.mealQty || {},
+                  undone: false,
+                  status: 'NoMeals'
+               };
+               toast.error(`No items booked by ${data.studentId} for current time!`);
+               setRecentScans(prev => [newScan, ...prev].slice(0, 50));
+            }
+          }
+        } catch (e) {
+          // Silent catch for bad formats
+        }
+      }, (err) => {});
+    }
+    return () => {
+      if (scanner) {
+        scanner.clear().catch(error => console.error("Failed to clear Scanner", error));
+      }
+    };
+  }, [selectedSection]);
 
   const handleVerify = async (e) => {
     e.preventDefault();
@@ -131,33 +248,44 @@ const EmployeeDashboard = () => {
     }
   };
 
-  const handleComplete = async (bookingId, sectionToMark) => {
+  const handleComplete = async (bookingId, sectionToMark, fromScanner=false) => {
     try {
       await api.post('/employee/complete', { bookingId, section: sectionToMark });
-      toast.success('Meal Completed');
-      if (verifyResult && verifyResult.bookingId === bookingId) {
+      toast.success(`${sectionToMark} marked Completed`);
+      if (fromScanner) {
+         setScannedStatuses(prev => ({...prev, [sectionToMark]: 'Completed'}));
+      }
+
+      if (!fromScanner && verifyResult && verifyResult.bookingId === bookingId) {
         setVerifyResult(null);
         setStudentId('');
         setSecretCode('');
         if (idInputRef.current) idInputRef.current.focus();
       }
-      fetchData(); // or rely on socket
+      if (selectedSection !== 'QR Scanner') fetchData();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Already Completed');
+      if (err.response?.data?.message === 'Already Completed' && fromScanner) {
+         setScannedStatuses(prev => ({...prev, [sectionToMark]: 'Completed'}));
+      }
     }
   };
 
-  const handleUndo = async (bookingId, sectionToMark) => {
+  const handleUndo = async (bookingId, sectionToMark, fromScanner=false) => {
     try {
       await api.post('/employee/undo', { bookingId, section: sectionToMark });
-      toast.success('Undone successfully');
-      if (verifyResult && verifyResult.bookingId === bookingId) {
+      toast.success(`${sectionToMark} undone`);
+      if (fromScanner) {
+         setScannedStatuses(prev => ({...prev, [sectionToMark]: 'Pending'}));
+      }
+
+      if (!fromScanner && verifyResult && verifyResult.bookingId === bookingId) {
         setVerifyResult(null);
         setStudentId('');
         setSecretCode('');
         if (idInputRef.current) idInputRef.current.focus();
       }
-      fetchData();
+      if (selectedSection !== 'QR Scanner') fetchData();
     } catch (err) {
       toast.error('Failed to undo');
     }
@@ -243,17 +371,17 @@ const EmployeeDashboard = () => {
                   style={{ padding: '10px', borderRadius: '8px', background: '#181820', color: '#fff', border: '1px solid #333', width: '80px', outline: 'none' }}
                 />
               )}
-              
+
               {analysisDuration === 'range' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#181820', padding: '5px 15px', borderRadius: '8px', border: '1px solid #333' }}>
-                  <input 
+                  <input
                     type="date"
                     value={analysisStartDate}
                     onChange={e => setAnalysisStartDate(e.target.value)}
                     style={{ background: 'transparent', border: 'none', color: '#fff', outline: 'none' }}
                   />
                   <span style={{ color: '#00e5ff', fontWeight: 'bold' }}>→</span>
-                  <input 
+                  <input
                     type="date"
                     value={analysisEndDate}
                     onChange={e => setAnalysisEndDate(e.target.value)}
@@ -307,6 +435,107 @@ const EmployeeDashboard = () => {
                   />
                 </AreaChart>
               </ResponsiveContainer>
+            </div>
+          </div>
+        ) : selectedSection === 'QR Scanner' ? (
+          <div style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }}>
+            {/* Left: Camera View */}
+            <div style={{ flex: 1, background: '#181820', padding: '25px', borderRadius: '15px' }}>
+              <h1 style={{ margin: '0 0 20px', fontSize: '1.8rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FaQrcode style={{ color: '#007bff' }} /> Live Scanner
+              </h1>
+              
+              <div style={{ background: '#252530', padding: '15px', borderRadius: '10px', marginBottom: '20px', borderLeft: '4px solid #f39c12' }}>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                   <p style={{ margin: 0, color: '#aaa', fontSize: '0.9rem' }}>Scanner Active Time Bucket:</p>
+                   <select 
+                     value={overrideSlot} 
+                     onChange={(e) => setOverrideSlot(e.target.value)}
+                     style={{ background: '#444', color: 'white', padding: '5px 10px', borderRadius: '5px', border: '1px solid #666', outline: 'none', cursor: 'pointer' }}
+                   >
+                     <option value="AUTO">Auto-Detect</option>
+                     <option value="MORNING">Force: Morning / Tiffin</option>
+                     <option value="LUNCH">Force: Lunch</option>
+                     <option value="SNACKS">Force: Snacks</option>
+                     <option value="DINNER">Force: Dinner</option>
+                   </select>
+                 </div>
+                 
+                 {(() => {
+                    const now = new Date();
+                    if (overrideSlot !== 'AUTO') {
+                      let label = '';
+                      if (overrideSlot === 'MORNING') label = "Forced Mode: Tiffin Items";
+                      if (overrideSlot === 'LUNCH') label = "Forced Mode: Lunch Items";
+                      if (overrideSlot === 'SNACKS') label = "Forced Mode: Evening Snacks";
+                      if (overrideSlot === 'DINNER') label = "Forced Mode: Dinner Items";
+                      return <h3 style={{ margin: '5px 0 0', color: '#f39c12' }}>{label}</h3>;
+                    }
+                    
+                    const t = now.getHours() + now.getMinutes() / 60;
+                    let slot = "NONE (Outside Meal Hours)";
+                    if (t >= 7 && t <= 9.5) slot = "Tiffin (7:00 AM - 9:30 AM)";
+                    else if (t >= 12 && t <= 14.5) slot = "Lunch (12:00 PM - 2:30 PM)";
+                    else if (t >= 17 && t <= 18.5) slot = "Snacks (5:00 PM - 6:30 PM)";
+                    else if (t >= 19 && t <= 21.5) slot = "Dinner (7:00 PM - 9:30 PM)";
+                    return <h3 style={{ margin: '5px 0 0', color: '#fff' }}>{slot} — Local Time: {now.toLocaleTimeString()}</h3>;
+                 })()}
+              </div>
+
+              <p style={{ color: '#888', marginBottom: '20px' }}>Point camera at student QR codes to process meals instantly.</p>
+              <div id="reader" style={{ width: '100%', background: 'black', borderRadius: '15px', overflow: 'hidden', border: '2px solid #333' }}></div>
+            </div>
+
+            {/* Right: Scan Results List */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '15px', maxHeight: '70vh', overflowY: 'auto', paddingRight: '10px' }}>
+              <h3 style={{ margin: 0, color: '#aaa', borderBottom: '1px solid #333', paddingBottom: '10px' }}>Recent Scans</h3>
+
+              {recentScans.length === 0 ? (
+                <div style={{ background: '#181820', padding: '40px', borderRadius: '15px', textAlign: 'center', border: '2px dashed #333' }}>
+                  <p style={{ fontSize: '2.5rem', margin: 0, opacity: 0.5 }}>📷</p>
+                  <p style={{ color: '#555', fontSize: '0.95rem', marginTop: '10px' }}>Waiting for scans... Auto-completed meals will appear here.</p>
+                </div>
+              ) : (
+                recentScans.map(scan => (
+                  <div key={scan.id} style={{
+                    background: '#252530', padding: '15px 20px', borderRadius: '12px',
+                    borderLeft: `4px solid ${scan.status === 'Success' ? '#2ed573' : (scan.status === 'AlreadyScanned' ? '#f39c12' : '#ff4757')}`,
+                    opacity: scan.undone ? 0.6 : 1
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                      <div>
+                        <h4 style={{ margin: 0, color: '#fff', fontSize: '1.2rem' }}>Student: <span style={{ color: '#00e5ff' }}>{scan.studentId}</span></h4>
+                        <span style={{ color: '#888', fontSize: '0.8rem' }}>{scan.timeStr}</span>
+                      </div>
+                      {scan.status === 'Success' && !scan.undone && (
+                        <button
+                          onClick={() => {
+                            scan.meals.forEach(m => api.post('/employee/undo', { bookingId: scan.bookingId, section: m }));
+                                  setRecentScans(prev => prev.map(s => s.id === scan.id ? {...s, undone: true} : s));
+                            toast.success('Undo complete');
+                          }}
+                          style={{ background: 'transparent', color: '#ff4757', border: '1px solid #ff4757', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer' }}
+                        >
+                          Undo
+                        </button>
+                      )}
+                      {scan.undone && <span style={{ color: '#ff4757', fontSize: '0.8rem', fontWeight: 'bold' }}>UNDONE</span>}
+                      {scan.status === 'AlreadyScanned' && <span style={{ color: '#f39c12', fontSize: '0.8rem', fontWeight: 'bold' }}>⚠️ ALREADY PROVIDED</span>}
+                    </div>
+
+                    {scan.status === 'Success' || scan.status === 'AlreadyScanned' ? (
+                      scan.meals.map(m => (
+                        <div key={m} style={{ background: '#181820', padding: '8px 12px', borderRadius: '8px', marginBottom: '5px', display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: scan.status === 'AlreadyScanned' ? '#aaa' : '#ddd' }}>{m}</span>
+                          <span style={{ color: scan.status === 'AlreadyScanned' ? '#aaa' : '#ffb142', fontWeight: 'bold' }}>x{scan.qty[m] || 1}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ color: '#ff4757', fontSize: '0.9rem' }}>No meals booked for the current active time slot.</div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         ) : (

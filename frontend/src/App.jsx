@@ -4,10 +4,12 @@ import { Toaster } from 'react-hot-toast';
 import { socket } from './socket';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import Landing from './pages/Landing';
 import AdminDashboard from './pages/AdminDashboard';
 import StudentDashboard from './pages/StudentDashboard';
 import EmployeeDashboard from './pages/EmployeeDashboard';
 import StoreManagerDashboard from './pages/StoreManagerDashboard';
+import PageWrapper from './components/PageWrapper';
 import './index.css';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -33,15 +35,17 @@ function App() {
   return (
     <Router>
       <Toaster position="top-right" />
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/admin/*" element={<ProtectedRoute allowedRoles={['Admin']}><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/student/*" element={<ProtectedRoute allowedRoles={['Student']}><StudentDashboard /></ProtectedRoute>} />
-        <Route path="/employee/*" element={<ProtectedRoute allowedRoles={['Employee']}><EmployeeDashboard /></ProtectedRoute>} />
-        <Route path="/storemanager/*" element={<ProtectedRoute allowedRoles={['StoreManager']}><StoreManagerDashboard /></ProtectedRoute>} />
-        <Route path="/" element={<Navigate to="/signup" replace />} />
-      </Routes>
+      <PageWrapper>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/admin/*" element={<ProtectedRoute allowedRoles={['Admin']}><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/student/*" element={<ProtectedRoute allowedRoles={['Student']}><StudentDashboard /></ProtectedRoute>} />
+          <Route path="/employee/*" element={<ProtectedRoute allowedRoles={['Employee']}><EmployeeDashboard /></ProtectedRoute>} />
+          <Route path="/storemanager/*" element={<ProtectedRoute allowedRoles={['StoreManager']}><StoreManagerDashboard /></ProtectedRoute>} />
+        </Routes>
+      </PageWrapper>
     </Router>
   );
 }

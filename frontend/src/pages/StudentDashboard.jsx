@@ -4,6 +4,7 @@ import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { FaUtensils, FaHistory, FaExclamationTriangle, FaChartBar, FaSignOutAlt, FaWallet, FaClipboardList, FaUser } from 'react-icons/fa';
 import { socket } from '../socket';
+import { QRCodeSVG } from 'qrcode.react';
 import { BadgeIcon } from '../components/BadgeManager';
 import { FaAward, FaCrown, FaBolt } from 'react-icons/fa';
 
@@ -119,9 +120,10 @@ const StudentDashboard = () => {
 
   const fetchTomorrowMenu = async () => {
     try {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const dateStr = formatDateLocal(tomorrow);
+      const today = new Date();
+      // Fetching TODAY's menu for testing instead of tomorrow's
+      // today.setDate(today.getDate() + 1);
+      const dateStr = formatDateLocal(today);
       const { data } = await api.get(`/admin/menu/${dateStr}`);
       setMenu(data);
     } catch (err) { }
@@ -218,8 +220,9 @@ const StudentDashboard = () => {
     if (selectedMeals.length === 0) return toast.error('Select at least one meal');
     const mealsWithQty = selectedMeals.map(m => isQuantityMeal(m) ? `${m} x${getQty(m)}` : m);
     try {
-      const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-      const dateStr = formatDateLocal(tomorrow);
+      const today = new Date(); 
+      // today.setDate(today.getDate() + 1); // Disabled for testing
+      const dateStr = formatDateLocal(today);
       const { data } = await api.post('/student/book', { date: dateStr, meals: mealsWithQty, isGuest, mealQty });
       toast.success(data.message);
       setSelectedMeals([]); setMealQty({}); fetchProfile(); fetchHistory();
@@ -784,20 +787,53 @@ const StudentDashboard = () => {
                     <button onClick={() => handleCancelBooking(b._id)} style={{ padding: '8px 15px', background: '#ff475722', color: '#ff4757', border: '1.5px solid #ff475755', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', transition: '0.2s' }}>✕ Cancel Booking</button>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '15px' }}>
-                    {Object.keys(b.codes || {}).map(meal => (
-                      <div key={meal} style={{ background: '#111', padding: '15px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: `3px solid ${MEAL_COLORS[meal] || 'var(--primary-color)'}` }}>
-                        <div>
-                          <span style={{ fontSize: '1.3rem', marginRight: '10px' }}>{MEAL_ICONS[meal]}</span>
-                          <span style={{ fontWeight: 'bold', color: '#ccc' }}>{meal}</span>
-                          {b.mealQty && b.mealQty[meal] > 1 && <span style={{ color: '#888', marginLeft: '8px', fontSize: '0.8rem' }}>x{b.mealQty[meal]}</span>}
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <label style={{ fontSize: '0.7rem', color: '#555', display: 'block', textTransform: 'uppercase' }}>Token Code</label>
-                          <span style={{ fontSize: '1.2rem', fontWeight: '900', color: '#2ed573', letterSpacing: '2px' }}>{b.codes[meal]}</span>
-                        </div>
+                  <div style={{ display: 'flex', gap: '20px', flexDirection: 'column' }}>
+                    
+                    {/* Unified Daily QR Code */}
+                    <div style={{ background: '#111', padding: '20px', borderRadius: '12px', display: 'flex', gap: '20px', alignItems: 'center', borderLeft: '4px solid var(--primary-color)' }}>
+                      <div style={{ background: 'white', padding: '10px', borderRadius: '10px' }}>
+                        <QRCodeSVG 
+                           value={JSON.stringify({
+                             bookingId: b._id,
+                             studentId: b.studentRollId || b.studentId,
+                             date: b.date,
+                             mealsBooked: Object.keys(b.codes || {}),
+                             mealQty: b.mealQty || {}
+                           })} 
+                           size={120} 
+                        />
                       </div>
-                    ))}
+                      <div>
+                        <h4 style={{ color: 'white', margin: '0 0 10px', fontSize: '1.2rem' }}>📱 Daily Pass QR</h4>
+                        <p style={{ color: '#888', margin: 0, fontSize: '0.9rem' }}>Scan this code at the counter during meal times. The system will automatically detect the current meal and provide your food.</p>
+                      </div>
+                    </div>
+
+                    {/* Items List grouping purely for display */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px' }}>
+                      {MEAL_SECTIONS.map(section => {
+                        const bookedItems = section.meals.filter(m => b.codes && b.codes[m]);
+                        if (bookedItems.length === 0) return null;
+                        
+                        return (
+                          <div key={section.label} style={{ background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '10px', border: '1px solid #222' }}>
+                            <h5 style={{ color: '#aaa', margin: '0 0 10px' }}>{section.label}</h5>
+                            {bookedItems.map(meal => (
+                              <div key={meal} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                <div>
+                                  <span style={{ marginRight: '5px' }}>{MEAL_ICONS[meal]}</span>
+                                  <span style={{ color: '#fff' }}>{meal}</span>
+                                  {b.mealQty && b.mealQty[meal] > 1 && <strong style={{ color: 'var(--primary-color)', marginLeft: '5px' }}>x{b.mealQty[meal]}</strong>}
+                                </div>
+                                <span style={{ color: b.status?.[meal] === 'Completed' ? 'var(--success-color)' : '#666', fontSize: '0.8rem' }}>
+                                  {b.status?.[meal] === 'Completed' ? 'Done' : 'Pending'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                   <div style={{ marginTop: '15px', textAlign: 'right', color: '#888', fontSize: '0.9rem' }}>
                     Total Cost: <strong style={{ color: 'white' }}>₹{b.price}</strong>
