@@ -513,6 +513,32 @@ def toggle_block_student(current_user, id):
     action = "blocked" if new_blocked else "unblocked"
     return jsonify({"message": f"Student {student['name']} has been {action}.", "isBlocked": new_blocked}), 200
 
+@admin_bp.route('/students/<id>', methods=['DELETE'])
+@token_required(['Admin'])
+def delete_student(current_user, id):
+    student = db.users.find_one({"_id": ObjectId(id), "role": "Student"})
+    if not student:
+        return jsonify({"message": "Student not found"}), 404
+        
+    student_email = student.get('email')
+    
+    # Cascading Deletions
+    db.users.delete_one({"_id": ObjectId(id)})
+    db.bookings.delete_many({"studentId": id})
+    db.complaints.delete_many({"studentId": id})
+    db.notifications.delete_many({"studentId": id})
+    
+    if student_email:
+        db.transactions.delete_many({"email": student_email})
+        
+    # Cleanup poll votes
+    db.polls.update_many({}, {
+        "$pull": {"votedBy": id},
+        "$unset": {f"studentVotes.{id}": ""}
+    })
+    
+    return jsonify({"message": f"Student {student.get('name')} and all associated data have been permanently deleted."}), 200
+
 @admin_bp.route('/bookings', methods=['GET'])
 @token_required(['Admin'])
 def get_bookings(current_user):

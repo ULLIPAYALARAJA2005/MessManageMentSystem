@@ -312,7 +312,8 @@ const SchedulerTab = ({ cycles, config, onRefresh, globalTemplate }) => {
   });
   const [configForm, setConfigForm] = useState({
     scheduleDays: config?.scheduleDays || 7,
-    deadlineDays: config?.deadlineDays || 3
+    deadlineDays: config?.deadlineDays || 3,
+    enabled: config?.enabled || false
   });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -321,7 +322,8 @@ const SchedulerTab = ({ cycles, config, onRefresh, globalTemplate }) => {
   useEffect(() => {
     setConfigForm({
       scheduleDays: config?.scheduleDays || 7,
-      deadlineDays: config?.deadlineDays || 3
+      deadlineDays: config?.deadlineDays || 3,
+      enabled: config?.enabled || false
     });
   }, [config]);
 
@@ -400,10 +402,23 @@ const SchedulerTab = ({ cycles, config, onRefresh, globalTemplate }) => {
         background: '#111', borderRadius: 14, padding: '22px 24px', marginBottom: 24,
         border: '1px solid #ff7b0022'
       }}>
-        <h4 style={{ color: '#ff7b00', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-          ⚙️ Auto-Schedule Config
-        </h4>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 14, alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h4 style={{ color: '#ff7b00', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            ⚙️ Auto-Schedule Config
+          </h4>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', background: '#1a1a1a', padding: '6px 12px', borderRadius: 20, border: '1px solid #333', transition: '0.2s' }}>
+            <span style={{ fontSize: '0.7rem', color: configForm.enabled ? '#ff7b00' : '#666', fontWeight: 800, letterSpacing: '0.5px' }}>
+              {configForm.enabled ? '🟢 AUTO-TRIGGER ON' : '⚪ AUTO-TRIGGER OFF'}
+            </span>
+            <input 
+              type="checkbox" 
+              checked={configForm.enabled} 
+              onChange={e => setConfigForm(p => ({ ...p, enabled: e.target.checked }))}
+              style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#ff7b00' }}
+            />
+          </label>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, alignItems: 'flex-end' }}>
           <div>
             <label style={{ color: '#888', fontSize: '0.78rem', display: 'block', marginBottom: 6 }}>FREQUENCY (DAYS)</label>
             <input
@@ -439,7 +454,7 @@ const SchedulerTab = ({ cycles, config, onRefresh, globalTemplate }) => {
       }}>
         <h3 style={{ marginBottom: 20 }}>📤 Create New Feedback Cycle</h3>
         <form onSubmit={handleCreate}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 14 }}>
             <div>
               <label style={{ color: '#888', fontSize: '0.78rem', display: 'block', marginBottom: 6 }}>TITLE</label>
               <input
@@ -598,12 +613,13 @@ const SchedulerTab = ({ cycles, config, onRefresh, globalTemplate }) => {
                       </div>
                     </div>
 
-                    {/* Action buttons bar — 4 cols: Preview | View | Edit | Delete */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: 10 }}>
+                    {/* Action buttons bar */}
+                    <div className="mobile-responsive-row" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                       {/* Preview Form */}
                       <button
                         onClick={() => setPreviewCycle(cycle)}
                         style={{
+                          flex: '1 1 auto',
                           padding: '11px 18px',
                           background: 'linear-gradient(135deg, #1a1000, #261600)',
                           color: '#ff9f44', border: '1px solid #ff7b0044',

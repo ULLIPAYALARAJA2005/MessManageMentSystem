@@ -12,24 +12,23 @@ badge_bp = Blueprint('badge_bp', __name__)
 @badge_bp.route('/students', methods=['GET'])
 @token_required(['Admin'])
 def get_badge_students(current_user):
-    students = list(db.users.find({"role": "Student"}, {"password": 0}))
+    # Fetch students directly with pre-calculated stats stored in user documents
+    students = list(db.users.find(
+        {"role": "Student"}, 
+        {"name": 1, "email": 1, "studentId": 1, "badge": 1, "domainBadges": 1, "mealCounts": 1, "totalBookings": 1}
+    ))
     
     results = []
     for s in students:
-        s_id = str(s['_id'])
-        stats = update_student_stats(s_id)
-        # Re-fetch to get updated domainBadges
-        updated = db.users.find_one({"_id": s['_id']}, {"password": 0})
-        
         results.append({
-            "id": s_id,
+            "id": str(s['_id']),
             "name": s['name'],
             "email": s['email'],
             "studentId": s.get('studentId', ''),
-            "totalBookings": stats['totalBookings'],
-            "badge": stats.get('badge', updated.get('badge', 'none')),
-            "domainBadges": stats.get('domainBadges', {}),
-            "mealCounts": stats['mealCounts']
+            "totalBookings": s.get('totalBookings', 0),
+            "badge": s.get('badge', 'none'),
+            "domainBadges": s.get('domainBadges', {}),
+            "mealCounts": s.get('mealCounts', {d: 0 for d in DOMAINS})
         })
     
     return jsonify(results), 200

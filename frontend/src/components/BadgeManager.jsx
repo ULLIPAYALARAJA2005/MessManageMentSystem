@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { 
   FaAward, FaSearch, FaChevronRight, FaInfoCircle, 
   FaCheckCircle, FaUsers, FaArrowRight, FaCogs, 
-  FaChartLine, FaHistory, FaTimes
+  FaChartLine, FaHistory, FaTimes, FaSpinner
 } from 'react-icons/fa';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -34,6 +34,40 @@ const BADGE_META = {
 const THRESHOLDS = { none: 0, silver: 50, gold: 100, diamond: 200 };
 
 // ─── Small Components ─────────────────────────────────────────────────────────
+
+const StellarLoader = () => (
+    <div style={{ 
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
+        height: '400px', gap: '20px', animation: 'uiFadeIn 0.5s ease-out' 
+    }}>
+        <style>{`
+            @keyframes stellarRotate { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            @keyframes stellarPulse { 0%, 100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.1); opacity: 1; } }
+            @keyframes uiFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        `}</style>
+        <div style={{ position: 'relative', width: '80px', height: '80px' }}>
+            <div style={{ 
+                position: 'absolute', inset: 0, borderRadius: '50%',
+                border: '3px solid transparent', borderTopColor: 'var(--primary-color)',
+                animation: 'stellarRotate 1s linear infinite'
+            }} />
+            <div style={{ 
+                position: 'absolute', inset: '10px', borderRadius: '50%',
+                border: '3px solid transparent', borderTopColor: '#ff7b0088',
+                animation: 'stellarRotate 1.5s linear infinite reverse'
+            }} />
+            <div style={{ 
+                position: 'absolute', inset: '25px', borderRadius: '50%',
+                background: 'var(--primary-color)', filter: 'blur(8px)',
+                animation: 'stellarPulse 2s ease-in-out infinite'
+            }} />
+        </div>
+        <div style={{ textAlign: 'center' }}>
+            <h3 style={{ margin: 0, letterSpacing: '2px', textTransform: 'uppercase', fontSize: '0.8rem', color: 'var(--primary-color)' }}>Deep Scan Active</h3>
+            <p style={{ margin: '5px 0 0', color: 'var(--text-sec)', fontSize: '0.75rem' }}>Synchronizing Badge Registry...</p>
+        </div>
+    </div>
+);
 
 export const BadgeIcon = ({ badge, size = 18 }) => {
   const meta = BADGE_META[badge] || BADGE_META.none;
@@ -168,45 +202,22 @@ const BadgeManager = () => {
     } catch { toast.error("Manual override rejected"); }
   };
 
-  const filteredStudents = students.filter(s => {
+  const filteredStudents = useMemo(() => {
     const q = search.toLowerCase();
-    const matchSearch = s.name.toLowerCase().includes(q) || s.studentId.toLowerCase().includes(q) || s.email.toLowerCase().includes(q);
-    const matchBadge = filter === 'all' || s.badge === filter || (s.domainBadges && Object.values(s.domainBadges).includes(filter));
-    return matchSearch && matchBadge;
-  }).sort((a, b) => b.totalBookings - a.totalBookings);
+    return students.filter(s => {
+      const matchSearch = s.name.toLowerCase().includes(q) || s.studentId.toLowerCase().includes(q) || s.email.toLowerCase().includes(q);
+      const matchBadge = filter === 'all' || s.badge === filter || (s.domainBadges && Object.values(s.domainBadges).includes(filter));
+      return matchSearch && matchBadge;
+    }).sort((a, b) => b.totalBookings - a.totalBookings);
+  }, [students, search, filter]);
 
-  const stats = {
+  const stats = useMemo(() => ({
     silver: students.filter(s => s.badge === 'silver').length,
     gold: students.filter(s => s.badge === 'gold').length,
     diamond: students.filter(s => s.badge === 'diamond').length,
-  };
+  }), [students]);
 
-  if (loading) return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', animation: 'pulse 1.5s ease-in-out infinite' }}>
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-      `}</style>
-      
-      {/* Skeleton Navbar */}
-      <div style={{ height: '56px', background: 'var(--card)', borderRadius: '12px', border: '1px solid var(--border)' }} />
-      
-      {/* Skeleton Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-        {[1, 2, 3, 4].map(k => (
-          <div key={k} style={{ height: '110px', background: 'var(--card)', borderRadius: '20px', border: '1px solid var(--border)' }} />
-        ))}
-      </div>
-
-      {/* Skeleton Main Content */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(350px, 1.2fr) minmax(400px, 1fr)', gap: '24px' }}>
-        <div style={{ height: '500px', background: 'var(--card)', borderRadius: '20px', border: '1px solid var(--border)' }} />
-        <div style={{ height: '500px', background: 'var(--card)', borderRadius: '20px', border: '1px solid var(--border)' }} />
-      </div>
-    </div>
-  );
+  if (loading) return <StellarLoader />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -257,96 +268,142 @@ const BadgeManager = () => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(350px, 1.2fr) minmax(400px, 1fr)', gap: '24px', alignItems: 'start' }}>
-            {/* ── Student List ── */}
-            <div style={{ background: 'var(--card)', borderRadius: '20px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-              <div style={{ padding: '20px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <div style={{ position: 'relative', flex: 1 }}>
-                    <FaSearch style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sec)' }} />
-                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search registry..."
-                      style={{ width: '100%', padding: '12px 12px 12px 42px', background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: '#fff', borderRadius: '10px', outline: 'none' }} />
-                  </div>
-                  <select value={filter} onChange={e => setFilter(e.target.value)}
-                    style={{ padding: '0 15px', background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: '#fff', borderRadius: '10px', outline: 'none' }}>
-                    <option value="all">Filter: All</option>
-                    {['none', 'silver', 'gold', 'diamond'].map(t => (
-                      <option key={t} value={t}>{BADGE_META[t].label}</option>
-                    ))}
-                  </select>
+          <div style={{ background: 'var(--card)', borderRadius: '20px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+            <div style={{ padding: '20px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <FaSearch style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sec)' }} />
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search registry..."
+                    style={{ width: '100%', padding: '12px 12px 12px 42px', background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: '#fff', borderRadius: '10px', outline: 'none' }} />
                 </div>
-              </div>
-
-              <div style={{ maxHeight: 'calc(100vh - 400px)', overflowY: 'auto' }}>
-                {filteredStudents.map(s => (
-                  <div key={s.id} onClick={() => openDetails(s.email)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '15px', padding: '16px 20px', borderBottom: '1px solid var(--border)',
-                      cursor: 'pointer', transition: '0.2s', background: selected?.id === s.id ? `${BADGE_META[s.badge].color}10` : 'transparent'
-                    }}>
-                    <BadgeIcon badge={s.badge} size={16} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: '800', fontSize: '0.95rem', color: selected?.id === s.id ? BADGE_META[s.badge].color : 'var(--text)' }}>{s.name}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-sec)' }}>{s.studentId}</div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      {['diamond', 'gold', 'silver'].map(t => {
-                        const count = Object.values(s.domainBadges || {}).filter(b => b === t).length;
-                        return count > 0 ? <span key={t} style={{ fontSize: '0.7rem', color: BADGE_META[t].color, background: `${BADGE_META[t].color}15`, padding: '2px 8px', borderRadius: '6px', fontWeight: 'bold' }}>{BADGE_META[t].icon} {count}</span> : null;
-                      })}
-                    </div>
-                    <FaChevronRight style={{ color: 'var(--border)', fontSize: '0.8rem' }} />
-                  </div>
-                ))}
+                <select value={filter} onChange={e => setFilter(e.target.value)}
+                  style={{ padding: '0 15px', background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: '#fff', borderRadius: '10px', outline: 'none' }}>
+                  <option value="all">Filter: All</option>
+                  {['none', 'silver', 'gold', 'diamond'].map(t => (
+                    <option key={t} value={t}>{BADGE_META[t].label}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
-            {/* ── Profile Detail Panel ── */}
-            <div style={{ position: 'sticky', top: '24px' }}>
-              {!selected ? (
-                <div style={{ background: 'var(--card)', padding: '60px 40px', borderRadius: '24px', border: '1px dashed var(--border)', textAlign: 'center', color: 'var(--text-sec)' }}>
-                  <FaChartLine style={{ fontSize: '3.5rem', marginBottom: '20px', opacity:0.1 }} />
-                  <h3 style={{ margin: 0 }}>Analyzer Inactive</h3>
-                  <p style={{ fontSize: '0.85rem' }}>Select a student from the registry to inspect domain-level performance metrics.</p>
-                </div>
-              ) : (
-                <div style={{ background: 'var(--card)', borderRadius: '24px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                  <div style={{ padding: '30px', background: 'linear-gradient(180deg, #111, transparent)', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
-                    <div style={{ display: 'inline-block', position: 'relative' }}>
-                      <BadgeIcon badge={selected.badge} size={35} />
-                      <div style={{ position: 'absolute', top: -5, right: -5, width: '15px', height: '15px', background: 'var(--success-color)', borderRadius: '50%', border: '2px solid #111' }} />
-                    </div>
-                    <h2 style={{ margin: '15px 0 5px', letterSpacing: '-0.5px' }}>{selected.name}</h2>
-                    <p style={{ margin: 0, color: 'var(--text-sec)', fontSize: '0.8rem' }}>{selected.email} • <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>{selected.totalBookings} Total Bookings</span></p>
+            <div style={{ maxHeight: 'calc(100vh - 400px)', overflowY: 'auto', scrollbarWidth: 'thin' }}>
+              {filteredStudents.length === 0 ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-sec)' }}>No records found in database</div>
+              ) : filteredStudents.map((s, idx) => (
+                <div key={s.id} onClick={() => openDetails(s.email)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '15px', padding: '16px 20px', borderBottom: '1px solid var(--border)',
+                    cursor: 'pointer', transition: '0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
+                    background: selected?.id === s.id ? `${BADGE_META[s.badge].color}10` : 'transparent',
+                    animation: `rowIn 0.4s ease-out forwards`,
+                    animationDelay: `${Math.min(idx * 0.05, 1)}s`,
+                    opacity: 0,
+                    transform: 'translateX(-10px)'
+                  }}
+                  className="student-row"
+                  onMouseOver={e => e.currentTarget.style.background = selected?.id === s.id ? `${BADGE_META[s.badge].color}15` : 'rgba(255,255,255,0.02)'}
+                  onMouseOut={e => e.currentTarget.style.background = selected?.id === s.id ? `${BADGE_META[s.badge].color}10` : 'transparent'}
+                >
+                  <style>{`
+                    @keyframes rowIn { to { opacity: 1; transform: translateX(0); } }
+                    .student-row:hover { transform: scale(1.01) !important; z-index: 10; boxShadow: 0 4px 20px rgba(0,0,0,0.2); }
+                  `}</style>
+                  <BadgeIcon badge={s.badge} size={16} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '800', fontSize: '0.95rem', color: selected?.id === s.id ? BADGE_META[s.badge].color : 'var(--text)' }}>{s.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-sec)' }}>{s.studentId}</div>
                   </div>
-
-                  <div style={{ padding: '24px', maxHeight: 'calc(100vh - 425px)', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-                      {DOMAINS.map(domain => (
-                        <DetailCard key={domain.key} domain={domain} badge={selected.domainBadges?.[domain.key] || 'none'} count={selected.mealCounts?.[domain.key] || 0} onAssign={(d, b) => handleAssign(selected.email, d, b)} />
-                      ))}
-                    </div>
-
-                    {selected.badgeHistory?.length > 0 && (
-                      <div style={{ marginTop: '10px' }}>
-                        <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', marginBottom: '15px' }}><FaHistory /> Activity Timeline</h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingLeft: '15px', borderLeft: '2px solid var(--border)' }}>
-                          {selected.badgeHistory.slice().reverse().slice(0, 5).map((h, i) => (
-                            <div key={i} style={{ position: 'relative' }}>
-                              <div style={{ position: 'absolute', left: '-21px', top: '4px', width: '10px', height: '10px', borderRadius: '50%', background: BADGE_META[h.badge]?.color || '#333' }} />
-                              <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{h.badge?.toUpperCase()} Awarded</div>
-                              <div style={{ fontSize: '0.7rem', color: 'var(--text-sec)' }}>{h.domain !== 'all' ? `Domain: ${h.domain}` : 'Universal Badge'} • {h.date}</div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-sec)', fontStyle: 'italic', marginTop: '2px' }}>"{h.reason}"</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {['diamond', 'gold', 'silver'].map(t => {
+                      const count = Object.values(s.domainBadges || {}).filter(b => b === t).length;
+                      return count > 0 ? <span key={t} style={{ fontSize: '0.7rem', color: BADGE_META[t].color, background: `${BADGE_META[t].color}15`, padding: '2px 8px', borderRadius: '6px', fontWeight: 'bold' }}>{BADGE_META[t].icon} {count}</span> : null;
+                    })}
                   </div>
+                  <FaChevronRight style={{ color: 'var(--border)', fontSize: '0.8rem' }} />
                 </div>
-              )}
+              ))}
             </div>
           </div>
+
+          {/* ── Profile Detail Popup Modal ── */}
+          {selected && (
+            <div style={{ 
+              position: 'fixed', inset: 0, zIndex: 10000, 
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '20px'
+            }}>
+              {/* Backdrop */}
+              <div 
+                onClick={() => setSelected(null)} 
+                style={{ 
+                  position: 'absolute', inset: 0, 
+                  background: 'rgba(0,0,0,0.8)', 
+                  backdropFilter: 'blur(12px)',
+                  animation: 'fadeIn 0.3s ease-out'
+                }} 
+              />
+              
+              {/* Modal Container */}
+              <div style={{ 
+                position: 'relative', background: 'var(--card)', borderRadius: '24px', 
+                border: '1px solid var(--border)', width: '100%', maxWidth: '850px', 
+                maxHeight: '90vh', overflow: 'hidden', zIndex: 1,
+                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+                animation: 'modalIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
+              }}>
+                <button onClick={() => setSelected(null)} style={{
+                  position: 'absolute', right: '20px', top: '20px', width: '36px', height: '36px',
+                  borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: 'none',
+                  color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  zIndex: 10, transition: '0.2s'
+                }} onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'} 
+                   onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}>
+                  <FaTimes />
+                </button>
+
+                <div style={{ padding: '30px', background: 'linear-gradient(180deg, #111, transparent)', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
+                  <div style={{ display: 'inline-block', position: 'relative' }}>
+                    <BadgeIcon badge={selected.badge} size={35} />
+                    <div style={{ position: 'absolute', top: -5, right: -5, width: '15px', height: '15px', background: 'var(--success-color)', borderRadius: '50%', border: '2px solid #111' }} />
+                  </div>
+                  <h2 style={{ margin: '15px 0 5px', letterSpacing: '-0.5px' }}>{selected.name}</h2>
+                  <p style={{ margin: 0, color: 'var(--text-sec)', fontSize: '0.8rem' }}>{selected.email} • <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>{selected.totalBookings} Total Bookings</span></p>
+                </div>
+
+                <div style={{ padding: '24px', maxHeight: 'calc(90vh - 160px)', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+                    {DOMAINS.map(domain => (
+                      <DetailCard key={domain.key} domain={domain} badge={selected.domainBadges?.[domain.key] || 'none'} count={selected.mealCounts?.[domain.key] || 0} onAssign={(d, b) => handleAssign(selected.email, d, b)} />
+                    ))}
+                  </div>
+
+                  {selected.badgeHistory?.length > 0 && (
+                    <div style={{ marginTop: '10px' }}>
+                      <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', marginBottom: '15px' }}><FaHistory /> Activity Timeline</h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingLeft: '15px', borderLeft: '2px solid var(--border)' }}>
+                        {selected.badgeHistory.slice().reverse().slice(0, 5).map((h, i) => (
+                          <div key={i} style={{ position: 'relative' }}>
+                            <div style={{ position: 'absolute', left: '-21px', top: '4px', width: '10px', height: '10px', borderRadius: '50%', background: BADGE_META[h.badge]?.color || '#333' }} />
+                            <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{h.badge?.toUpperCase()} Awarded</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-sec)' }}>{h.domain !== 'all' ? `Domain: ${h.domain}` : 'Universal Badge'} • {h.date}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-sec)', fontStyle: 'italic', marginTop: '2px' }}>"{h.reason}"</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <style>{`
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes modalIn { 
+                  from { opacity: 0; transform: scale(0.95) translateY(20px); } 
+                  to { opacity: 1; transform: scale(1) translateY(0); } 
+                }
+              `}</style>
+            </div>
+          )}
         </>
       ) : (
         /* ── Global Standards Tab ── */

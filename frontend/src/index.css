@@ -1,9 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-  --primary-color: #ff7b00; /* Orange food theme */
+  --primary-color: #ff7b00;
+  /* Orange food theme */
   --primary-hover: #e66f00;
-  --bg-color: #121212; /* Dark theme */
+  --bg-color: #121212;
+  /* Dark theme */
   --surface-color: #1e1e1e;
   --surface-hover: #2d2d2d;
   --text-primary: #ffffff;
@@ -36,15 +38,18 @@ body {
   width: 10px;
   height: 10px;
 }
+
 ::-webkit-scrollbar-track {
   background: var(--bg-color);
   border-left: 1px solid rgba(255, 255, 255, 0.05);
 }
+
 ::-webkit-scrollbar-thumb {
   background: #333;
   border-radius: 5px;
   border: 2px solid var(--bg-color);
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary-color);
 }
@@ -62,6 +67,7 @@ body {
   transition: var(--transition);
   width: 100%;
 }
+
 .btn-primary:hover {
   background: var(--primary-hover);
   transform: translateY(-2px);
@@ -81,7 +87,7 @@ body {
   background: var(--surface-color);
   padding: 40px;
   border-radius: var(--border-radius);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   width: 100%;
   max-width: 400px;
   border: 1px solid #333;
@@ -91,10 +97,12 @@ body {
   text-align: center;
   margin-bottom: 30px;
 }
+
 .login-header h2 {
   color: var(--primary-color);
   margin-bottom: 8px;
 }
+
 .login-header p {
   color: var(--text-secondary);
 }
@@ -102,12 +110,14 @@ body {
 .form-group {
   margin-bottom: 20px;
 }
+
 .form-group label {
   display: block;
   margin-bottom: 8px;
   font-size: 0.9rem;
   color: var(--text-secondary);
 }
+
 .form-group input {
   width: 100%;
   padding: 12px;
@@ -118,6 +128,7 @@ body {
   outline: none;
   transition: var(--transition);
 }
+
 .form-group input:focus {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 2px rgba(255, 123, 0, 0.2);
@@ -128,29 +139,87 @@ body {
   .dashboard-layout {
     flex-direction: column !important;
   }
+
   .sidebar {
     width: 100% !important;
     min-height: auto !important;
     border-right: none !important;
     border-bottom: 1px solid #333 !important;
-    padding: 20px !important;
+    padding: 15px !important;
   }
+
   .main-content {
     padding: 15px !important;
     max-height: none !important;
     overflow-y: visible !important;
   }
+
   .stat-card {
     min-width: 100% !important;
   }
+
   header {
     flex-direction: column !important;
     align-items: flex-start !important;
     gap: 15px;
   }
+
+  /* OVERRIDE INLINE GRID DECLARATIONS FOR ADMIN PANELS */
+  /* Collapses all structural wide grids down to a single column */
   div[style*="grid-template-columns: 1fr 1fr"],
-  div[style*="grid-template-columns: 1.5fr 1fr"] {
+  div[style*="grid-template-columns: 1.5fr 1fr"],
+  div[style*="grid-template-columns: 1.8fr 1fr"],
+  div[style*="grid-template-columns: 2fr 1fr"],
+  div[style*="grid-template-columns: 1fr 2fr"],
+  div[style*="grid-template-columns: 1fr 1.5fr"],
+  div[style*="grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr)"],
+  div[style*="grid-template-columns: minmax(350px, 1.2fr) minmax(400px, 1fr)"],
+  div[style*="grid-template-columns: repeat(3, 1fr)"],
+  div[style*="grid-template-columns: 1fr 1fr 1fr"] {
     grid-template-columns: 1fr !important;
+  }
+
+  /* Force responsive wrapping on generic flex rows inside tables */
+  .mobile-responsive-row {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 5px;
+    /* space for scrollbar */
+    width: 100%;
+  }
+
+  .mobile-responsive-row>div {
+    min-width: max-content;
+    /* Ensure items don't squish */
+  }
+
+  /* Admin sidebar nav: convert from vertical column list to horizontal scrollable row */
+  .sidebar nav {
+    display: flex !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    gap: 6px !important;
+    padding-bottom: 8px !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar nav button,
+  .sidebar nav a {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    padding: 8px 12px !important;
+    font-size: 0.8rem !important;
+  }
+
+  /* Prevent modals from overflowing on mobile */
+  div[style*="position: fixed"][style*="inset: 0"]>div {
+    max-height: 95vh;
+    overflow-y: auto;
+  }
+
+  /* Stack inline flex rows that wrap poorly */
+  div[style*="display: flex"][style*="justify-content: space-between"] {
+    flex-wrap: wrap;
   }
 }
 
@@ -165,6 +234,7 @@ body {
     transform: translateY(20px);
     filter: blur(5px);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0);
@@ -193,13 +263,42 @@ body {
 }
 
 @keyframes loadingBar {
-  0% { transform: translateX(-100%); }
-  50% { transform: translateX(0); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+
+  50% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 @keyframes pulseOrb {
-  0%   { box-shadow: 0 0 0 0   rgba(255, 123, 0, 0.7); }
-  70%  { box-shadow: 0 0 0 5px rgba(255, 123, 0, 0);   }
-  100% { box-shadow: 0 0 0 0   rgba(255, 123, 0, 0);   }
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 123, 0, 0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 5px rgba(255, 123, 0, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 123, 0, 0);
+  }
+}
+@keyframes pulseOrb {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 123, 0, 0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 5px rgba(255, 123, 0, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 123, 0, 0);
+  }
 }

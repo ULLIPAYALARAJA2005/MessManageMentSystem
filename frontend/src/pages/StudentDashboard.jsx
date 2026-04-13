@@ -35,6 +35,7 @@ const BADGE_META = {
 const StudentDashboard = () => {
   const [profile, setProfile] = useState({ name: '', email: '', walletBalance: 0, _id: '', studentId: '', phone: '', photoBase64: '' });
   const [activeTab, setActiveTab] = useState('menu');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Data
   const [menu, setMenu] = useState(null);
@@ -52,6 +53,7 @@ const StudentDashboard = () => {
   const [hasFeedbackBadge, setHasFeedbackBadge] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [activeWeeklyDay, setActiveWeeklyDay] = useState(new Date().toLocaleDateString('en-US', { weekday: 'long' }));
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -537,28 +539,87 @@ const StudentDashboard = () => {
     }
     if (activeTab === 'weekly') {
       const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-      const MEALS = ["Morning Tea/Milk", "Morning Egg", "Morning Banana", "Tiffin", "Lunch Veg", "Lunch Non-Veg", "Lunch Egg", "Evening Tea/Milk", "Snacks", "Dinner Veg", "Dinner Non-Veg", "Dinner Egg"];
+      const SECTIONS = [
+        { label: '🌅 Early Morning', icon: '🍳', meals: ["Morning Tea/Milk", "Morning Egg", "Morning Banana"] },
+        { label: '🥪 Morning Tiffin', icon: '🥪', meals: ["Tiffin"] },
+        { label: '🍛 Balanced Lunch', icon: '🍗', meals: ["Lunch Veg", "Lunch Non-Veg", "Lunch Egg"] },
+        { label: '🌆 Evening & Dinner', icon: '🍱', meals: ["Evening Tea/Milk", "Snacks", "Dinner Veg", "Dinner Non-Veg", "Dinner Egg"] }
+      ];
+      
+      const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+
       return (
-        <div style={{ background: 'var(--surface-color)', padding: '25px', borderRadius: 'var(--border-radius)' }}>
-          <h3>Standard Weekly Overview</h3>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>This is the default mess framework. Check Meal Bookings for exact daily variants.</p>
-          {!weeklyMenu ? <p>Loading menu...</p> : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
-              {DAYS.map(day => (
-                <div key={day} style={{ background: '#111', padding: '20px', borderRadius: '12px', borderTop: day === new Date().toLocaleDateString('en-US', { weekday: 'long' }) ? '4px solid var(--primary-color)' : 'none' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                    <h3 style={{ color: day === new Date().toLocaleDateString('en-US', { weekday: 'long' }) ? 'var(--primary-color)' : 'white', margin: 0 }}>{day} {day === new Date().toLocaleDateString('en-US', { weekday: 'long' }) && '(Today)'}</h3>
+        <div style={{ animation: 'uiFadeIn 0.4s ease-out' }}>
+          <style>{`
+            @keyframes uiFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+            .day-btn { padding: 12px 20px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text-sec); cursor: pointer; transition: 0.2s; font-weight: 600; font-size: 0.9rem; }
+            .day-btn.active { background: var(--primary-color); color: white; border-color: var(--primary-color); box-shadow: 0 4px 15px rgba(255,123,0,0.3); }
+            .day-btn:hover:not(.active) { background: var(--border); color: var(--text); }
+          `}</style>
+
+          <div style={{ background: 'var(--surface-color)', padding: '25px', borderRadius: '14px', marginBottom: '20px', border: '1px solid var(--border)' }}>
+            <h3 style={{ margin: 0 }}>📋 Standard Weekly Overview</h3>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '0.9rem' }}>
+              This is the default mess framework. For exact daily variants and booking, visit the <strong>Meal Booking</strong> tab.
+            </p>
+          </div>
+
+          {/* DAY SELECTOR */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '25px', overflowX: 'auto', paddingBottom: '10px', scrollbarWidth: 'none' }}>
+            {DAYS.map(day => (
+              <button key={day} onClick={() => setActiveWeeklyDay(day)} className={`day-btn ${activeWeeklyDay === day ? 'active' : ''}`}>
+                {day} {day === today && '•'}
+              </button>
+            ))}
+          </div>
+
+          {!weeklyMenu ? (
+            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-sec)' }}>Loading mess framework...</div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
+              {SECTIONS.map((section, sIdx) => {
+                const dayData = weeklyMenu[activeWeeklyDay] || {};
+                return (
+                  <div key={sIdx} style={{ background: 'var(--surface-color)', borderRadius: '20px', padding: '20px', border: '1px solid var(--border)' }}>
+                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary-color)', marginBottom: '15px', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.5px' }}>
+                      <span style={{ fontSize: '1.2rem' }}>{section.icon}</span> {section.label}
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {section.meals.map(meal => {
+                        const item = dayData[meal];
+                        const hasName = item?.name && item.name.toLowerCase() !== 'not set';
+                        return (
+                          <div key={meal} style={{ 
+                            background: 'var(--card)', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border)',
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                          }}>
+                            <div style={{ flex: 1 }}>
+                              <p style={{ 
+                                fontSize: '0.62rem', 
+                                color: MEAL_COLORS[meal] || 'var(--text-sec)', 
+                                textTransform: 'uppercase', 
+                                fontWeight: 900, 
+                                marginBottom: '4px',
+                                letterSpacing: '0.4px'
+                              }}>
+                                {meal}
+                              </p>
+                              <span style={{ fontWeight: '600', fontSize: '0.92rem', color: hasName ? 'var(--text)' : 'var(--text-sec)', opacity: hasName ? 1 : 0.5 }}>
+                                {hasName ? item.name : 'Not Scheduled'}
+                              </span>
+                            </div>
+                            {item?.price > 0 && (
+                              <div style={{ color: 'var(--success-color)', fontWeight: 'bold', fontSize: '1rem', background: 'rgba(46, 213, 115, 0.1)', padding: '4px 8px', borderRadius: '6px' }}>
+                                ₹{item.price}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {MEALS.map(meal => (
-                      <div key={meal} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #222', paddingBottom: '8px' }}>
-                        <span style={{ color: '#888', fontSize: '0.85rem' }}>{meal} {meal.includes('Egg') ? '🥚' : '🌱'}</span>
-                        <span style={{ color: 'white', fontWeight: '500' }}>{weeklyMenu[day]?.[meal]?.name || <span style={{ color: '#555' }}>Not Set</span>} <span style={{ color: 'var(--success-color)' }}>{weeklyMenu[day]?.[meal]?.price > 0 && `(₹${weeklyMenu[day][meal].price})`}</span></span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1168,51 +1229,73 @@ const StudentDashboard = () => {
 
   return (
     <div className="dashboard-layout" style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0a0a0a', overflow: 'hidden' }}>
+      
+      {/* MOBILE OVERLAY */}
+      <div 
+        onClick={() => setSidebarOpen(false)}
+        className={sidebarOpen ? "mobile-overlay visible" : "mobile-overlay"}
+      />
 
       {/* TOPMOST NAVIGATION BAR (Sticky) */}
       <header style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         zIndex: 100, flexShrink: 0,
         background: 'rgba(10, 10, 10, 0.75)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        padding: '15px 30px',
+        padding: '12px 20px',
         borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-        boxShadow: '0 4px 30px rgba(0, 0, 0, 0.3)'
+        boxShadow: '0 4px 30px rgba(0, 0, 0, 0.3)',
+        flexWrap: 'wrap', gap: '10px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
-          <h2 style={{ color: 'var(--primary-color)', margin: 0, fontWeight: '800', letterSpacing: '1px' }}>Smart Mess</h2>
-          <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          {/* Hamburger Toggle */}
+          <button 
+            onClick={() => setSidebarOpen(true)}
+            className="hamburger-btn"
+            style={{ 
+              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', 
+              color: 'var(--primary-color)', padding: '10px', borderRadius: '12px', 
+              cursor: 'pointer', display: 'none', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1.2rem'
+            }}
+          >☰</button>
+          <h2 className="admin-name-section" style={{ color: 'var(--primary-color)', margin: 0, fontWeight: '800', letterSpacing: '1px', fontSize: '1.3rem' }}>Smart Mess</h2>
+          <div className="admin-name-section">
             <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '500' }}>Welcome, <span style={{ color: 'var(--primary-color)' }}>{profile.name}</span></h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '2px 0 0 0' }}>Here is what's happening at the mess today.</p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto' }}>
           {profile.badge && profile.badge !== 'none' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', padding: '8px 16px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="admin-name-section" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', padding: '8px 16px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
               <BadgeIcon badge={profile.badge} size={16} />
               <span style={{ fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.5px', color: '#eaeaea' }}>{profile.badge} Tier</span>
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(16, 185, 129, 0.1)', padding: '8px 18px', borderRadius: '20px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16, 185, 129, 0.1)', padding: '8px 15px', borderRadius: '20px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
             <FaWallet color="#10b981" size={16} />
-            <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#eaeaea' }}>Balance: <span style={{ color: '#10b981' }}>₹{profile.walletBalance}</span></span>
+            <span style={{ fontWeight: 'bold', fontSize: '0.82rem', color: '#eaeaea' }}><span className="admin-name-section">Balance:</span> <span style={{ color: '#10b981' }}>₹{profile.walletBalance}</span></span>
           </div>
         </div>
       </header>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* SIDEBAR */}
-        <div className="sidebar" style={{
+        <div className={sidebarOpen ? "sidebar open" : "sidebar"} style={{
           width: '240px', minWidth: '240px', flexShrink: 0,
           background: 'var(--surface-color)', padding: '25px 20px',
           display: 'flex', flexDirection: 'column', borderRight: '1px solid #222',
-          overflowY: 'auto'
+          overflowY: 'auto', zIndex: 1000
         }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }} className="hamburger-btn">
+             <h3 style={{ margin: 0, color: 'var(--primary-color)' }}>Smart Mess</h3>
+             <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', color: '#888', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
             {navItems.map(item => (
               <div
                 key={item.id}
-                onClick={() => { setActiveTab(item.id); if (item.id === 'feedback') setHasFeedbackBadge(false); }}
+                onClick={() => { setActiveTab(item.id); setSidebarOpen(false); if (item.id === 'feedback') setHasFeedbackBadge(false); }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '12px',
                   padding: '12px 16px', borderRadius: '12px', cursor: 'pointer',

@@ -30,6 +30,51 @@ const SECTIONS = [
 // Sections where quantity matters — show the Qty column
 const QTY_SECTIONS = ['Morning Egg', 'Lunch Egg', 'Dinner Egg', 'Snacks'];
 
+/** 
+ * ULTIMATE VOLUME SCANNER AUDIO 
+ * Uses aggressive Square/Sawtooth waveforms to pierce through noise.
+ */
+const playScannerSound = (type) => {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    
+    // Create new context per-call to ensure it's "fresh", but try to resume
+    const audioCtx = new AudioContext();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
+    const playTone = (freq, duration, wave = 'square', delay = 0, volume = 1.0) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = wave;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
+      
+      // Maximum volume envelope
+      gain.gain.setValueAtTime(0, audioCtx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(volume, audioCtx.currentTime + delay + 0.01);
+      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + delay + duration);
+      
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(audioCtx.currentTime + delay);
+      osc.stop(audioCtx.currentTime + delay + duration);
+    };
+
+    if (type === 'success') {
+      // High-frequency piercing double chirp (Standard 'Good' Sound)
+      playTone(900, 0.1, 'square', 0, 0.8);
+      playTone(1200, 0.15, 'square', 0.12, 1.0);
+    } else {
+      // Harsh low-frequency triple buzz (Aggressive 'Stop' Sound)
+      playTone(220, 0.15, 'sawtooth', 0, 1.0);
+      playTone(220, 0.15, 'sawtooth', 0.2, 1.0);
+      playTone(220, 0.25, 'sawtooth', 0.4, 1.0);
+    }
+  } catch (e) {
+    console.warn("Audio Context failed to play. Ensure user interaction.");
+  }
+};
+
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -45,7 +90,7 @@ const EmployeeDashboard = () => {
   const [recentScans, setRecentScans] = useState([]);
   const [overrideSlot, setOverrideSlot] = useState('AUTO');
   const overrideSlotRef = React.useRef(overrideSlot);
-  
+
   useEffect(() => {
     overrideSlotRef.current = overrideSlot;
   }, [overrideSlot]);
@@ -135,94 +180,99 @@ const EmployeeDashboard = () => {
         try {
           const data = JSON.parse(decodedText);
           if (data.bookingId && data.mealsBooked) {
-             const now = new Date();
-             
-             // Prevent overlapping network calls for exact same scan
-             if (lastScannedBooking === data.bookingId && (now.getTime() - lastScanTime) < 5000) {
-                return;
-             }
-             lastScannedBooking = data.bookingId;
-             lastScanTime = now.getTime();
+            const now = new Date();
 
-             const time = now.getHours() + now.getMinutes() / 60;
-             let activeMeals = [];
-             
-             const currentOverride = overrideSlotRef.current;
-             if (currentOverride === 'AUTO') {
-                if (time >= 7 && time <= 10.5) activeMeals = ['Morning Tea/Milk', 'Morning Egg', 'Morning Banana', 'Tiffin'];
-                else if (time >= 12 && time <= 15) activeMeals = ['Lunch Veg', 'Lunch Non-Veg', 'Lunch Egg'];
-                else if (time >= 17 && time <= 18.5) activeMeals = ['Evening Tea/Milk', 'Snacks'];
-                else if (time >= 19 && time <= 22) activeMeals = ['Dinner Veg', 'Dinner Non-Veg', 'Dinner Egg'];
-              } else if (currentOverride === 'MORNING') {
-                activeMeals = ['Morning Tea/Milk', 'Morning Egg', 'Morning Banana', 'Tiffin'];
-              } else if (currentOverride === 'LUNCH') {
-                activeMeals = ['Lunch Veg', 'Lunch Non-Veg', 'Lunch Egg'];
-              } else if (currentOverride === 'SNACKS') {
-                activeMeals = ['Evening Tea/Milk', 'Snacks'];
-              } else if (currentOverride === 'DINNER') {
-                activeMeals = ['Dinner Veg', 'Dinner Non-Veg', 'Dinner Egg'];
-              }
+            // Prevent overlapping network calls for exact same scan
+            if (lastScannedBooking === data.bookingId && (now.getTime() - lastScanTime) < 5000) {
+              return;
+            }
+            lastScannedBooking = data.bookingId;
+            lastScanTime = now.getTime();
+
+            const time = now.getHours() + now.getMinutes() / 60;
+            let activeMeals = [];
+
+            const currentOverride = overrideSlotRef.current;
+            if (currentOverride === 'AUTO') {
+              if (time >= 7 && time <= 10.5) activeMeals = ['Morning Tea/Milk', 'Morning Egg', 'Morning Banana', 'Tiffin'];
+              else if (time >= 12 && time <= 15) activeMeals = ['Lunch Veg', 'Lunch Non-Veg', 'Lunch Egg'];
+              else if (time >= 17 && time <= 18.5) activeMeals = ['Evening Tea/Milk', 'Snacks'];
+              else if (time >= 19 && time <= 22) activeMeals = ['Dinner Veg', 'Dinner Non-Veg', 'Dinner Egg'];
+            } else if (currentOverride === 'MORNING') {
+              activeMeals = ['Morning Tea/Milk', 'Morning Egg', 'Morning Banana', 'Tiffin'];
+            } else if (currentOverride === 'LUNCH') {
+              activeMeals = ['Lunch Veg', 'Lunch Non-Veg', 'Lunch Egg'];
+            } else if (currentOverride === 'SNACKS') {
+              activeMeals = ['Evening Tea/Milk', 'Snacks'];
+            } else if (currentOverride === 'DINNER') {
+              activeMeals = ['Dinner Veg', 'Dinner Non-Veg', 'Dinner Egg'];
+            }
 
             const bookedActiveMeals = data.mealsBooked.filter(m => activeMeals.includes(m));
 
             if (bookedActiveMeals.length > 0) {
-               const promises = bookedActiveMeals.map(meal => 
-                  api.post('/employee/complete', { bookingId: data.bookingId, section: meal })
-               );
+              const promises = bookedActiveMeals.map(meal =>
+                api.post('/employee/complete', { bookingId: data.bookingId, section: meal })
+              );
 
-               Promise.allSettled(promises).then(results => {
-                  let successCount = 0;
-                  let alreadyCompletedCount = 0;
+              Promise.allSettled(promises).then(results => {
+                let successCount = 0;
+                let alreadyCompletedCount = 0;
 
-                  results.forEach(res => {
-                     if (res.status === 'fulfilled') successCount++;
-                     else if (res.reason?.response?.data?.message === 'Already Completed') alreadyCompletedCount++;
-                  });
+                results.forEach(res => {
+                  if (res.status === 'fulfilled') successCount++;
+                  else if (res.reason?.response?.data?.message === 'Already Completed') alreadyCompletedCount++;
+                });
 
-                  const isAlreadyDone = alreadyCompletedCount === bookedActiveMeals.length;
+                const isAlreadyDone = alreadyCompletedCount === bookedActiveMeals.length;
 
-                  const newScan = {
-                     id: Math.random().toString(36).substr(2, 9),
-                     bookingId: data.bookingId,
-                     studentId: data.studentId,
-                     timeStr: now.toLocaleTimeString(),
-                     scannedAt: now,
-                     meals: bookedActiveMeals,
-                     qty: data.mealQty || {},
-                     undone: false,
-                     status: successCount > 0 ? 'Success' : (isAlreadyDone ? 'AlreadyScanned' : 'Error')
-                  };
-
-                  if (successCount > 0) {
-                     toast.success(`Provided ${bookedActiveMeals.join(', ')} to ${data.studentId}`);
-                  } else if (isAlreadyDone) {
-                     toast.error(`Already marked as completed for ${data.studentId}!`);
-                  } else {
-                     toast.error(`Error processing scan for ${data.studentId}`);
-                  }
-
-                  setRecentScans(prev => [newScan, ...prev].slice(0, 50));
-               });
-            } else {
-               const newScan = {
+                const newScan = {
                   id: Math.random().toString(36).substr(2, 9),
                   bookingId: data.bookingId,
                   studentId: data.studentId,
                   timeStr: now.toLocaleTimeString(),
                   scannedAt: now,
-                  meals: [],
+                  meals: bookedActiveMeals,
                   qty: data.mealQty || {},
                   undone: false,
-                  status: 'NoMeals'
-               };
-               toast.error(`No items booked by ${data.studentId} for current time!`);
-               setRecentScans(prev => [newScan, ...prev].slice(0, 50));
+                  status: successCount > 0 ? 'Success' : (isAlreadyDone ? 'AlreadyScanned' : 'Error')
+                };
+
+                if (successCount > 0) {
+                  playScannerSound('success');
+                  toast.success(`Provided ${bookedActiveMeals.join(', ')} to ${data.studentId}`);
+                } else if (isAlreadyDone) {
+                  playScannerSound('error');
+                  toast.error(`Already marked as completed for ${data.studentId}!`);
+                } else {
+                  playScannerSound('error');
+                  toast.error(`Error processing scan for ${data.studentId}`);
+                }
+
+                setRecentScans(prev => [newScan, ...prev].slice(0, 50));
+              });
+            } else {
+              const newScan = {
+                id: Math.random().toString(36).substr(2, 9),
+                bookingId: data.bookingId,
+                studentId: data.studentId,
+                timeStr: now.toLocaleTimeString(),
+                scannedAt: now,
+                meals: [],
+                qty: data.mealQty || {},
+                undone: false,
+                status: 'NoMeals'
+              };
+              playScannerSound('error');
+              toast.error(`No items booked by ${data.studentId} for current time!`);
+              setRecentScans(prev => [newScan, ...prev].slice(0, 50));
             }
           }
         } catch (e) {
-          // Silent catch for bad formats
+          playScannerSound('error');
+          toast.error("Invalid QR Format detected");
         }
-      }, (err) => {});
+      }, (err) => { });
     }
     return () => {
       if (scanner) {
@@ -252,12 +302,12 @@ const EmployeeDashboard = () => {
     }
   };
 
-  const handleComplete = async (bookingId, sectionToMark, fromScanner=false) => {
+  const handleComplete = async (bookingId, sectionToMark, fromScanner = false) => {
     try {
       await api.post('/employee/complete', { bookingId, section: sectionToMark });
       toast.success(`${sectionToMark} marked Completed`);
       if (fromScanner) {
-         setScannedStatuses(prev => ({...prev, [sectionToMark]: 'Completed'}));
+        setScannedStatuses(prev => ({ ...prev, [sectionToMark]: 'Completed' }));
       }
 
       if (!fromScanner && verifyResult && verifyResult.bookingId === bookingId) {
@@ -269,17 +319,17 @@ const EmployeeDashboard = () => {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Already Completed');
       if (err.response?.data?.message === 'Already Completed' && fromScanner) {
-         setScannedStatuses(prev => ({...prev, [sectionToMark]: 'Completed'}));
+        setScannedStatuses(prev => ({ ...prev, [sectionToMark]: 'Completed' }));
       }
     }
   };
 
-  const handleUndo = async (bookingId, sectionToMark, fromScanner=false) => {
+  const handleUndo = async (bookingId, sectionToMark, fromScanner = false) => {
     try {
       await api.post('/employee/undo', { bookingId, section: sectionToMark });
       toast.success(`${sectionToMark} undone`);
       if (fromScanner) {
-         setScannedStatuses(prev => ({...prev, [sectionToMark]: 'Pending'}));
+        setScannedStatuses(prev => ({ ...prev, [sectionToMark]: 'Pending' }));
       }
 
       if (!fromScanner && verifyResult && verifyResult.bookingId === bookingId) {
@@ -318,26 +368,26 @@ const EmployeeDashboard = () => {
   return (
     <div style={{ ...theme, display: 'flex', height: '100vh', background: 'var(--dash-bg)', color: 'var(--dash-text)', transition: 'all 0.3s ease', fontFamily: "'Inter', sans-serif" }}>
       {/* 📂 LEFT SIDEBAR */}
-      <div style={{ 
-        width: '240px', 
+      <div style={{
+        width: '240px',
         minWidth: '240px',
         flexShrink: 0,
-        background: 'var(--dash-surface)', 
-        borderRight: '1px solid var(--dash-border)', 
-        padding: '25px 20px', 
-        display: 'flex', 
-        flexDirection: 'column', 
+        background: 'var(--dash-surface)',
+        borderRight: '1px solid var(--dash-border)',
+        padding: '25px 20px',
+        display: 'flex',
+        flexDirection: 'column',
         transition: 'all 0.3s ease',
         boxShadow: isDark ? 'none' : '2px 0 10px rgba(0,0,0,0.05)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '40px', padding: '0 10px' }}>
-          <div style={{ 
-            width: '40px', 
-            height: '40px', 
-            borderRadius: '10px', 
-            background: 'var(--dash-accent)', 
-            display: 'flex', 
-            alignItems: 'center', 
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '10px',
+            background: 'var(--dash-accent)',
+            display: 'flex',
+            alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
             fontSize: '1.2rem'
@@ -508,45 +558,60 @@ const EmployeeDashboard = () => {
           <div style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }}>
             {/* Left: Camera View */}
             <div style={{ flex: 1, background: 'var(--dash-surface)', padding: '25px', borderRadius: '15px' }}>
-              <h1 style={{ margin: '0 0 20px', fontSize: '1.8rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <FaQrcode style={{ color: '#007bff' }} /> Live Scanner
-              </h1>
-              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h1 style={{ margin: 0, fontSize: '1.8rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <FaQrcode style={{ color: '#007bff' }} /> Live Scanner
+                </h1>
+                <button 
+                  onClick={() => {
+                    playScannerSound('success');
+                    toast.success("Audio Initialized 🔊");
+                  }}
+                  style={{ 
+                    padding: '10px 15px', borderRadius: '8px', border: '1px solid var(--dash-accent)',
+                    background: 'rgba(0, 123, 255, 0.1)', color: 'var(--dash-accent)', 
+                    fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
+                  }}
+                >
+                  🔊 Enable Audio
+                </button>
+              </div>
+
               <div style={{ background: 'var(--dash-card)', padding: '15px', borderRadius: '10px', marginBottom: '20px', borderLeft: '4px solid #f39c12' }}>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                   <p style={{ margin: 0, color: 'var(--dash-text-sec)', fontSize: '0.9rem' }}>Scanner Active Time Bucket:</p>
-                   <select 
-                     value={overrideSlot} 
-                     onChange={(e) => setOverrideSlot(e.target.value)}
-                     style={{ background: '#444', color: 'white', padding: '5px 10px', borderRadius: '5px', border: '1px solid #666', outline: 'none', cursor: 'pointer' }}
-                   >
-                     <option value="AUTO">Auto-Detect</option>
-                     <option value="MORNING">Force: Morning / Tiffin</option>
-                     <option value="LUNCH">Force: Lunch</option>
-                     <option value="SNACKS">Force: Snacks</option>
-                     <option value="DINNER">Force: Dinner</option>
-                   </select>
-                 </div>
-                 
-                 {(() => {
-                    const now = new Date();
-                    if (overrideSlot !== 'AUTO') {
-                      let label = '';
-                      if (overrideSlot === 'MORNING') label = "Forced Mode: Tiffin Items";
-                      if (overrideSlot === 'LUNCH') label = "Forced Mode: Lunch Items";
-                      if (overrideSlot === 'SNACKS') label = "Forced Mode: Snacks";
-                      if (overrideSlot === 'DINNER') label = "Forced Mode: Dinner Items";
-                      return <h3 style={{ margin: '5px 0 0', color: '#f39c12' }}>{label}</h3>;
-                    }
-                    
-                    const t = now.getHours() + now.getMinutes() / 60;
-                    let slot = "NONE (Outside Meal Hours)";
-                    if (t >= 7 && t <= 9.5) slot = "Tiffin (7:00 AM - 9:30 AM)";
-                    else if (t >= 12 && t <= 14.5) slot = "Lunch (12:00 PM - 2:30 PM)";
-                    else if (t >= 17 && t <= 18.5) slot = "Snacks (5:00 PM - 6:30 PM)";
-                    else if (t >= 19 && t <= 21.5) slot = "Dinner (7:00 PM - 9:30 PM)";
-                    return <h3 style={{ margin: '5px 0 0', color: 'var(--dash-text)' }}>{slot} — Local Time: {now.toLocaleTimeString()}</h3>;
-                 })()}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <p style={{ margin: 0, color: 'var(--dash-text-sec)', fontSize: '0.9rem' }}>Scanner Active Time Bucket:</p>
+                  <select
+                    value={overrideSlot}
+                    onChange={(e) => setOverrideSlot(e.target.value)}
+                    style={{ background: '#444', color: 'white', padding: '5px 10px', borderRadius: '5px', border: '1px solid #666', outline: 'none', cursor: 'pointer' }}
+                  >
+                    <option value="AUTO">Auto-Detect</option>
+                    <option value="MORNING">Force: Morning / Tiffin</option>
+                    <option value="LUNCH">Force: Lunch</option>
+                    <option value="SNACKS">Force: Snacks</option>
+                    <option value="DINNER">Force: Dinner</option>
+                  </select>
+                </div>
+
+                {(() => {
+                  const now = new Date();
+                  if (overrideSlot !== 'AUTO') {
+                    let label = '';
+                    if (overrideSlot === 'MORNING') label = "Forced Mode: Tiffin Items";
+                    if (overrideSlot === 'LUNCH') label = "Forced Mode: Lunch Items";
+                    if (overrideSlot === 'SNACKS') label = "Forced Mode: Snacks";
+                    if (overrideSlot === 'DINNER') label = "Forced Mode: Dinner Items";
+                    return <h3 style={{ margin: '5px 0 0', color: '#f39c12' }}>{label}</h3>;
+                  }
+
+                  const t = now.getHours() + now.getMinutes() / 60;
+                  let slot = "NONE (Outside Meal Hours)";
+                  if (t >= 7 && t <= 9.5) slot = "Tiffin (7:00 AM - 9:30 AM)";
+                  else if (t >= 12 && t <= 14.5) slot = "Lunch (12:00 PM - 2:30 PM)";
+                  else if (t >= 17 && t <= 18.5) slot = "Snacks (5:00 PM - 6:30 PM)";
+                  else if (t >= 19 && t <= 21.5) slot = "Dinner (7:00 PM - 9:30 PM)";
+                  return <h3 style={{ margin: '5px 0 0', color: 'var(--dash-text)' }}>{slot} — Local Time: {now.toLocaleTimeString()}</h3>;
+                })()}
               </div>
 
               <p style={{ color: 'var(--dash-text-sec)', marginBottom: '20px' }}>Point camera at student QR codes to process meals instantly.</p>
@@ -578,7 +643,7 @@ const EmployeeDashboard = () => {
                         <button
                           onClick={() => {
                             scan.meals.forEach(m => api.post('/employee/undo', { bookingId: scan.bookingId, section: m }));
-                                  setRecentScans(prev => prev.map(s => s.id === scan.id ? {...s, undone: true} : s));
+                            setRecentScans(prev => prev.map(s => s.id === scan.id ? { ...s, undone: true } : s));
                             toast.success('Undo complete');
                           }}
                           style={{ background: 'transparent', color: '#ff4757', border: '1px solid #ff4757', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer' }}
@@ -638,12 +703,12 @@ const EmployeeDashboard = () => {
 
               {/* 📊 SUMMARY CARDS */}
               <div style={{ display: 'flex', gap: '15px' }}>
-                <div style={{ 
-                  background: 'var(--dash-card)', 
-                  padding: '12px 24px', 
-                  borderRadius: '12px', 
-                  display: 'flex', 
-                  flexDirection: 'column', 
+                <div style={{
+                  background: 'var(--dash-card)',
+                  padding: '12px 24px',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
                   boxShadow: isDark ? 'none' : '0 2px 8px rgba(0,0,0,0.05)',
                   border: '1px solid var(--dash-border)'
@@ -651,26 +716,26 @@ const EmployeeDashboard = () => {
                   <span style={{ fontSize: '0.75rem', color: 'var(--dash-text-sec)', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.5px' }}>Total</span>
                   <span style={{ fontSize: '1.5rem', fontWeight: '800' }}>{stats.total}</span>
                 </div>
-                <div style={{ 
-                  background: 'rgba(46, 213, 115, 0.1)', 
-                  padding: '12px 24px', 
-                  borderRadius: '12px', 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center', 
+                <div style={{
+                  background: 'rgba(46, 213, 115, 0.1)',
+                  padding: '12px 24px',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
                   color: 'var(--success-color)',
                   border: '1px solid rgba(46, 213, 115, 0.2)'
                 }}>
                   <span style={{ fontSize: '0.75rem', opacity: 0.8, textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.5px' }}>Done</span>
                   <span style={{ fontSize: '1.5rem', fontWeight: '800' }}>{stats.completed}</span>
                 </div>
-                <div style={{ 
-                  background: 'rgba(255, 71, 87, 0.1)', 
-                  padding: '12px 24px', 
-                  borderRadius: '12px', 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center', 
+                <div style={{
+                  background: 'rgba(255, 71, 87, 0.1)',
+                  padding: '12px 24px',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
                   color: 'var(--danger-color)',
                   border: '1px solid rgba(255, 71, 87, 0.2)'
                 }}>
@@ -696,14 +761,14 @@ const EmployeeDashboard = () => {
                     value={studentId}
                     onChange={e => setStudentId(e.target.value)}
                     required
-                    style={{ 
-                      width: '100%', 
-                      padding: '14px 18px', 
-                      fontSize: '1rem', 
-                      background: 'var(--input-bg)', 
-                      border: '1px solid var(--input-border)', 
-                      color: 'var(--dash-text)', 
-                      borderRadius: '10px', 
+                    style={{
+                      width: '100%',
+                      padding: '14px 18px',
+                      fontSize: '1rem',
+                      background: 'var(--input-bg)',
+                      border: '1px solid var(--input-border)',
+                      color: 'var(--dash-text)',
+                      borderRadius: '10px',
                       outline: 'none',
                       transition: 'border-color 0.2s',
                       boxShadow: isDark ? 'none' : 'inset 0 1px 2px rgba(0,0,0,0.05)'
@@ -715,19 +780,19 @@ const EmployeeDashboard = () => {
                 <button
                   disabled={loading}
                   type="submit"
-                  style={{ 
-                    padding: '12px 28px', 
-                    fontSize: '1rem', 
-                    fontWeight: '600', 
-                    background: 'var(--dash-accent)', 
-                    color: '#fff', 
-                    border: 'none', 
-                    borderRadius: '10px', 
-                    cursor: 'pointer', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '10px', 
-                    minWidth: '140px', 
+                  style={{
+                    padding: '12px 28px',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    background: 'var(--dash-accent)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    minWidth: '140px',
                     justifyContent: 'center',
                     transition: 'all 0.2s',
                     boxShadow: '0 4px 12px rgba(0, 123, 255, 0.2)'
@@ -754,15 +819,15 @@ const EmployeeDashboard = () => {
                     ) : (
                       <>
                         <h3 style={{ margin: '0 0 5px', fontSize: '1.2rem', fontWeight: '700' }}>
-                          {verifyResult.studentName} 
+                          {verifyResult.studentName}
                           <span style={{ color: 'var(--dash-text-sec)', fontSize: '0.9rem', fontWeight: '500', marginLeft: '8px' }}>
                             ({verifyResult.studentId})
                           </span>
                         </h3>
-                        <p style={{ 
-                          margin: 0, 
-                          color: verifyResult.status === 'Completed' ? 'var(--success-color)' : '#ffa502', 
-                          fontWeight: '600', 
+                        <p style={{
+                          margin: 0,
+                          color: verifyResult.status === 'Completed' ? 'var(--success-color)' : '#ffa502',
+                          fontWeight: '600',
                           fontSize: '0.95rem',
                           display: 'flex',
                           alignItems: 'center',
@@ -780,14 +845,14 @@ const EmployeeDashboard = () => {
                       {verifyResult.status === 'Pending' ? (
                         <button
                           onClick={() => handleComplete(verifyResult.bookingId, verifyResult.mealSection)}
-                          style={{ 
-                            background: 'var(--success-color)', 
-                            color: '#fff', 
-                            padding: '10px 24px', 
-                            borderRadius: '8px', 
-                            border: 'none', 
-                            fontWeight: '600', 
-                            fontSize: '1rem', 
+                          style={{
+                            background: 'var(--success-color)',
+                            color: '#fff',
+                            padding: '10px 24px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            fontWeight: '600',
+                            fontSize: '1rem',
                             cursor: 'pointer',
                             transition: 'all 0.2s'
                           }}
@@ -797,14 +862,14 @@ const EmployeeDashboard = () => {
                       ) : (
                         <button
                           onClick={() => handleUndo(verifyResult.bookingId, verifyResult.mealSection)}
-                          style={{ 
-                            background: 'rgba(255, 71, 87, 0.1)', 
-                            color: '#ff4757', 
-                            padding: '10px 24px', 
-                            borderRadius: '8px', 
-                            border: '1px solid #ff4757', 
-                            fontWeight: '600', 
-                            fontSize: '1rem', 
+                          style={{
+                            background: 'rgba(255, 71, 87, 0.1)',
+                            color: '#ff4757',
+                            padding: '10px 24px',
+                            borderRadius: '8px',
+                            border: '1px solid #ff4757',
+                            fontWeight: '600',
+                            fontSize: '1rem',
                             cursor: 'pointer',
                             transition: 'all 0.2s'
                           }}

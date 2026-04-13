@@ -15,7 +15,7 @@ import { socket } from '../socket';
 import toast from 'react-hot-toast';
 
 const MEAL_ICONS = {
-    'Morning Tea/Milk': <FaCoffee />, 'Morning Egg': <FaEgg />, 'Morning Banana': <FaCoffee/>, 'Tiffin': <FaUtensils />,
+    'Morning Tea/Milk': <FaCoffee />, 'Morning Egg': <FaEgg />, 'Morning Banana': <FaCoffee />, 'Tiffin': <FaUtensils />,
     'Lunch Veg': <FaConciergeBell />, 'Lunch Non-Veg': <FaConciergeBell />, 'Lunch Egg': <FaEgg />, 'Evening Tea/Milk': <FaCoffee />,
     'Snacks': <FaLeaf />, 'Dinner Veg': <FaMoon />, 'Dinner Non-Veg': <FaMoon />, 'Dinner Egg': <FaEgg />
 };

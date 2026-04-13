@@ -24,17 +24,17 @@ export default function StudentHistoryDashboard({ history }) {
     const categoryCounts = { 'Tea/Milk': 0, 'Eggs': 0, 'Lunch': 0, 'Dinner': 0, 'Tiffin': 0, 'Snacks': 0, 'Other': 0 };
     const categorySpending = { 'Tea/Milk': 0, 'Eggs': 0, 'Lunch': 0, 'Dinner': 0, 'Tiffin': 0, 'Snacks': 0, 'Other': 0 };
     const dateMap = {}; // { 'YYYY-MM-DD': { bookings, mealsCount, cost } }
-    
+
     // Process filtering first
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
-    
+
     // Normalize today for week calculation
     const todayNum = now.getDay() === 0 ? 6 : now.getDay() - 1; // 0=Mon, 6=Sun
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - todayNum);
-    startOfWeek.setHours(0,0,0,0);
+    startOfWeek.setHours(0, 0, 0, 0);
 
     const filteredHistory = history.filter(b => {
       const bDate = new Date(b.date);
@@ -52,14 +52,14 @@ export default function StudentHistoryDashboard({ history }) {
 
     filteredHistory.forEach(b => {
       totalSpent += b.price || 0;
-      
+
       let dayMealsCount = 0;
       const dayCost = b.price || 0;
 
       b.meals.forEach(mealStr => {
         const baseName = mealStr.split(' x')[0];
         const category = categorizeMeal(baseName);
-        
+
         let qty = 1;
         if (b.mealQty && b.mealQty[baseName]) {
           qty = b.mealQty[baseName];
@@ -67,9 +67,9 @@ export default function StudentHistoryDashboard({ history }) {
           const match = mealStr.match(/x(\d+)/);
           if (match) qty = parseInt(match[1]);
         }
-        
+
         const pricePerUnit = (b.itemPrices && b.itemPrices[baseName]) ? b.itemPrices[baseName] : 0;
-        
+
         // Count each individual item unit as a meal count, or treat one meal type as 1 count?
         // Let's treat quantities as actual consumption counts.
         categoryCounts[category] = (categoryCounts[category] || 0) + qty;
@@ -98,11 +98,11 @@ export default function StudentHistoryDashboard({ history }) {
     });
 
     const activeDays = Object.keys(dateMap).length;
-    const avgMealsPerDay = activeDays > 0 ? (Object.values(categoryCounts).reduce((a,b)=>a+b,0) / activeDays).toFixed(1) : 0;
+    const avgMealsPerDay = activeDays > 0 ? (Object.values(categoryCounts).reduce((a, b) => a + b, 0) / activeDays).toFixed(1) : 0;
 
-    return { 
-      totalSpent, categoryCounts, categorySpending, dateMap, 
-      activeDays, avgMealsPerDay, mostFrequent, leastFrequent 
+    return {
+      totalSpent, categoryCounts, categorySpending, dateMap,
+      activeDays, avgMealsPerDay, mostFrequent, leastFrequent
     };
   }, [history, selectedDateFilter]);
 
@@ -114,20 +114,20 @@ export default function StudentHistoryDashboard({ history }) {
 
     const today = new Date();
     const grid = [];
-    
+
     // Iterate down to -7 to include the upcoming 7 days in the future
     for (let i = daysToGenerate; i >= -7; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
       const isoStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      
+
       const dayData = stats.dateMap[isoStr] || { bookings: [], mealsCount: 0, cost: 0 };
       let intensity = 0;
       if (dayData.mealsCount > 0) intensity = 1;
       if (dayData.mealsCount >= 2) intensity = 2;
       if (dayData.mealsCount >= 4) intensity = 3;
       if (dayData.mealsCount >= 6) intensity = 4;
-      
+
       grid.push({
         date: isoStr,
         dayOfWeek: d.getDay(),
@@ -144,7 +144,7 @@ export default function StudentHistoryDashboard({ history }) {
     const months = [];
     let currentMonth = null;
     let currentMonthNum = null;
-    
+
     heatmapGrid.forEach(day => {
       if (currentMonthNum !== day.month) {
         const mStr = new Date(day.date).toLocaleDateString('default', { month: 'short' });
@@ -166,15 +166,15 @@ export default function StudentHistoryDashboard({ history }) {
 
   return (
     <div style={{ color: 'white', display: 'flex', flexDirection: 'column', gap: '25px', paddingBottom: '30px' }}>
-      
+
       {/* Filters & Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h2 style={{ margin: 0, color: 'var(--primary-color)' }}>Student History & Attendance</h2>
           <p style={{ margin: '5px 0 0 0', color: '#888' }}>Analyze your dining habits and track your expenses.</p>
         </div>
-        <select 
-          value={selectedDateFilter} 
+        <select
+          value={selectedDateFilter}
           onChange={(e) => setSelectedDateFilter(e.target.value)}
           style={{ padding: '8px 16px', background: '#1a1a1a', color: 'white', border: '1px solid #333', borderRadius: '8px', outline: 'none' }}
         >
@@ -199,24 +199,24 @@ export default function StudentHistoryDashboard({ history }) {
       {/* Top Summary KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
         <div style={{ background: '#111', padding: '20px', borderRadius: '12px', border: '1px solid #222' }}>
-           <p style={{ margin: '0 0 5px 0', color: '#888', fontSize: '0.9rem' }}>Total Spent</p>
-           <h3 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--success-color)' }}>₹{stats.totalSpent}</h3>
+          <p style={{ margin: '0 0 5px 0', color: '#888', fontSize: '0.9rem' }}>Total Spent</p>
+          <h3 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--success-color)' }}>₹{stats.totalSpent}</h3>
         </div>
         <div style={{ background: '#111', padding: '20px', borderRadius: '12px', border: '1px solid #222' }}>
-           <p style={{ margin: '0 0 5px 0', color: '#888', fontSize: '0.9rem' }}>Total Days Present</p>
-           <h3 style={{ margin: 0, fontSize: '1.8rem', color: 'white' }}>{stats.activeDays} Days</h3>
+          <p style={{ margin: '0 0 5px 0', color: '#888', fontSize: '0.9rem' }}>Total Days Present</p>
+          <h3 style={{ margin: 0, fontSize: '1.8rem', color: 'white' }}>{stats.activeDays} Days</h3>
         </div>
         <div style={{ background: '#111', padding: '20px', borderRadius: '12px', border: '1px solid #222' }}>
-           <p style={{ margin: '0 0 5px 0', color: '#888', fontSize: '0.9rem' }}>Most Booked Category</p>
-           <h3 style={{ margin: 0, fontSize: '1.8rem', color: '#ff7b00' }}>{stats.mostFrequent}</h3>
+          <p style={{ margin: '0 0 5px 0', color: '#888', fontSize: '0.9rem' }}>Most Booked Category</p>
+          <h3 style={{ margin: 0, fontSize: '1.8rem', color: '#ff7b00' }}>{stats.mostFrequent}</h3>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '25px', alignItems: 'start' }}>
-        
+
         {/* Main Content Area */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-          
+
           {/* Heatmap Grid Section */}
           <div style={{ background: 'var(--surface-color)', padding: '25px', borderRadius: '12px', border: '1px solid #222' }}>
             <h3 style={{ margin: '0 0 20px 0' }}>Activity Heatmap</h3>
@@ -225,15 +225,15 @@ export default function StudentHistoryDashboard({ history }) {
                 {groupedByMonth.map(month => (
                   <div key={`${month.name}-${month.year}`} style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ fontSize: '0.8rem', color: '#888', marginBottom: '8px', fontWeight: 'bold' }}>{month.name}</span>
-                    <div style={{ 
-                      display: 'grid', 
+                    <div style={{
+                      display: 'grid',
                       gap: '4px',
                       gridTemplateRows: 'repeat(7, 14px)',
                       gridAutoFlow: 'column',
                       gridAutoColumns: '14px',
                     }}>
                       {month.days.map((day, idx) => (
-                        <div 
+                        <div
                           key={`${day.date}-${idx}`}
                           onClick={() => setSelectedDay(day)}
                           style={{
@@ -267,7 +267,7 @@ export default function StudentHistoryDashboard({ history }) {
             <div style={{ background: 'var(--surface-color)', padding: '25px', borderRadius: '12px', border: '1px solid #222' }}>
               <h4 style={{ margin: '0 0 15px 0' }}>Spending Breakdown</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {Object.entries(stats.categorySpending).sort((a,b)=>b[1]-a[1]).map(([cat, amount]) => {
+                {Object.entries(stats.categorySpending).sort((a, b) => b[1] - a[1]).map(([cat, amount]) => {
                   if (amount === 0) return null;
                   return (
                     <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #333' }}>
@@ -303,7 +303,7 @@ export default function StudentHistoryDashboard({ history }) {
 
       {/* Centered Modal Overlay */}
       {selectedDay && (
-        <div 
+        <div
           onClick={() => setSelectedDay(null)}
           style={{
             position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
@@ -312,7 +312,7 @@ export default function StudentHistoryDashboard({ history }) {
             zIndex: 9999, backdropFilter: 'blur(3px)'
           }}
         >
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()}
             style={{
               background: 'var(--surface-color)', padding: '30px', borderRadius: '16px',
@@ -328,8 +328,8 @@ export default function StudentHistoryDashboard({ history }) {
                   {new Date(selectedDay.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </p>
               </div>
-              <button 
-                onClick={() => setSelectedDay(null)} 
+              <button
+                onClick={() => setSelectedDay(null)}
                 style={{ background: 'none', border: 'none', color: '#888', fontSize: '1.2rem', cursor: 'pointer' }}
               >✖</button>
             </div>
@@ -352,7 +352,7 @@ export default function StudentHistoryDashboard({ history }) {
                         <span style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 'bold' }}>⚡ Auto</span>
                       )}
                     </div>
-                    
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       {booking.meals.map(m => {
                         const baseName = m.split(' x')[0];
@@ -365,22 +365,22 @@ export default function StudentHistoryDashboard({ history }) {
                         );
                       })}
                     </div>
-                    
+
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '15px', paddingTop: '12px', borderTop: '1px dashed #333' }}>
                       <span style={{ fontWeight: 'bold', color: '#fff' }}>Total</span>
                       <span style={{ fontWeight: 'bold', color: 'var(--success-color)' }}>₹{booking.price}</span>
                     </div>
                   </div>
                 ))}
-                
+
                 <div style={{ background: 'linear-gradient(135deg, #1f1f1f, #111)', borderRadius: '12px', padding: '20px', marginTop: '10px', textAlign: 'center', border: '1px solid #333' }}>
                   <p style={{ margin: '0 0 5px 0', color: '#888', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Daily Grand Total</p>
                   <h2 style={{ margin: 0, color: 'var(--success-color)', fontSize: '2rem' }}>₹{selectedDay.dayData.cost}</h2>
                 </div>
               </div>
             )}
-            
-            <button 
+
+            <button
               onClick={() => setSelectedDay(null)}
               style={{ width: '100%', marginTop: '20px', padding: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
             >

@@ -58,7 +58,7 @@ const StoreManagerDashboard = () => {
         <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
             <h2 style={{ color: 'var(--primary-color)', marginBottom: '20px' }}>Store Manager Dashboard</h2>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) minmax(300px, 1fr)', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
                 <div style={{ background: 'var(--surface-color)', padding: '20px', borderRadius: 'var(--border-radius)' }}>
                     <h3>Current Inventory</h3>
                     <div style={{ marginTop: '15px' }}>

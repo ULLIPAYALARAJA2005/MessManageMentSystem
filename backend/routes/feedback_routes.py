@@ -134,7 +134,7 @@ def serialize_cycle(cycle):
 def auto_trigger_cycle_if_due():
     """Check if it's time to start a new feedback cycle based on scheduleDays."""
     config = db.feedback_config.find_one({"_id": "global"})
-    if not config:
+    if not config or not config.get('enabled', False):
         return None
 
     schedule_days = config.get('scheduleDays', 7)
@@ -233,6 +233,7 @@ def manage_config(current_user):
     update = {
         "scheduleDays": data.get('scheduleDays', 7),
         "deadlineDays": data.get('deadlineDays', 3),
+        "enabled": data.get('enabled', False)
     }
     if 'lastSentDate' in data:
         update['lastSentDate'] = data['lastSentDate']

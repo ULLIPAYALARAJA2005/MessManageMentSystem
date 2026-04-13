@@ -39,6 +39,7 @@ const WalletManager = () => {
     const [typeFilter, setTypeFilter] = useState('all');
     const [form, setForm] = useState({ email: '', amount: '', purpose: 'Recharge', mode: 'add' });
     const [isBulk, setIsBulk] = useState({ add: false, deduct: false });
+    const [txnDate, setTxnDate] = useState(''); // Default: recent 200
 
     useEffect(() => {
         fetchAll();
@@ -46,14 +47,25 @@ const WalletManager = () => {
         return () => socket.off('walletUpdated', fetchAll);
     }, []);
 
+    useEffect(() => {
+        fetchTxns(txnDate);
+    }, [txnDate]);
+
+    const fetchTxns = async (date) => {
+        try {
+            const { data } = await api.get(`/wallet/transactions?date=${date}`);
+            setTxns(data);
+        } catch (e) { }
+    };
 
     const fetchAll = async () => {
         try {
-            const [s, t, stu, lb, an] = await Promise.all([
-                api.get('/wallet/summary'), api.get('/wallet/transactions'),
+            const [s, stu, lb, an] = await Promise.all([
+                api.get('/wallet/summary'),
                 api.get('/wallet/students'), api.get('/wallet/low-balance'), api.get('/wallet/analytics')
             ]);
-            setSummary(s.data); setTxns(t.data); setStudents(stu.data); setLowBalance(lb.data); setAnalytics(an.data);
+            setSummary(s.data); setStudents(stu.data); setLowBalance(lb.data); setAnalytics(an.data);
+            if (!txnDate) fetchTxns(''); // Re-fetch default if not currently filtering by date/all
         } catch (e) { }
     };
 
@@ -166,13 +178,40 @@ const WalletManager = () => {
             {activeSection === 'transactions' && (
                 <div style={{ background: 'var(--surface-color)', padding: '20px', borderRadius: '12px' }}>
                     <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                            <input placeholder="Search by email or name..." value={search} onChange={e => setSearch(e.target.value)} style={{ padding: '10px 14px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '8px', width: '250px' }} />
+                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <input placeholder="Search by email or name..." value={search} onChange={e => setSearch(e.target.value)} style={{ padding: '10px 14px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '8px', width: '220px' }} />
                             <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={{ padding: '10px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '8px' }}>
                                 <option value="all">All Types</option>
                                 <option value="credit">Credit Only</option>
                                 <option value="debit">Debit Only</option>
                             </select>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--card)', padding: '5px 12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-sec)' }}>📅 Date:</span>
+                                <input
+                                    type="date"
+                                    value={txnDate && txnDate !== 'all' ? txnDate : ''}
+                                    onChange={e => setTxnDate(e.target.value)}
+                                    style={{ background: 'none', border: 'none', color: 'var(--text)', outline: 'none', cursor: 'pointer', fontSize: '0.9rem' }}
+                                />
+                            </div>
+
+                            <button
+                                onClick={() => setTxnDate('all')}
+                                style={{
+                                    padding: '10px 16px',
+                                    background: txnDate === 'all' ? 'var(--primary-color)' : 'var(--card)',
+                                    border: '1px solid var(--border)',
+                                    color: txnDate === 'all' ? 'white' : 'var(--text)',
+                                    borderRadius: '8px', cursor: 'pointer', transition: '0.2s', fontWeight: 'bold', fontSize: '0.85rem'
+                                }}
+                            >
+                                {txnDate === 'all' ? '✅ Showing Overall' : '📊 Over All History'}
+                            </button>
+
+                            {txnDate && (
+                                <button onClick={() => setTxnDate('')} style={{ background: 'none', border: 'none', color: '#ff4757', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>✕ Clear</button>
+                            )}
                         </div>
                         <button onClick={exportCSV} style={{ padding: '10px 20px', background: '#27ae60', color: 'var(--text)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>⬇ Export CSV</button>
                     </div>
@@ -326,6 +365,7 @@ const WalletManager = () => {
 const WeeklyMenuManager = () => {
     const [weekly, setWeekly] = useState(null);
     const [editMode, setEditMode] = useState({});
+    const [activeDay, setActiveDay] = useState(new Date().toLocaleDateString('en-US', { weekday: 'long' }));
 
     useEffect(() => {
         api.get('/admin/weekly-menu').then(res => setWeekly(res.data)).catch(e => console.log(e));
@@ -334,71 +374,152 @@ const WeeklyMenuManager = () => {
     const saveDay = async () => {
         try {
             await api.put('/admin/weekly-menu', weekly);
-            toast.success('Weekly menu updated and saved to Server!');
+            toast.success('System parameters synchronized with server! 🚀');
         } catch (e) { toast.error('Failed to save'); }
     };
 
     const copyMondayTo = (day) => {
         setWeekly(prev => ({ ...prev, [day]: JSON.parse(JSON.stringify(prev['Monday'])) }));
-        toast.success(`Copied Monday to ${day}`);
+        toast.success(`Infrastructure copied from Monday to ${day} ✨`);
     };
 
     const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    const MEALS = ["Morning Tea/Milk", "Morning Egg", "Morning Banana", "Tiffin", "Lunch Veg", "Lunch Non-Veg", "Lunch Egg", "Evening Tea/Milk", "Snacks", "Dinner Veg", "Dinner Non-Veg", "Dinner Egg"];
+    
+    const SECTIONS = [
+        { label: '🌅 Early Morning', icon: '🍳', meals: ["Morning Tea/Milk", "Morning Egg", "Morning Banana"] },
+        { label: '🥪 Morning Tiffin', icon: '🥪', meals: ["Tiffin"] },
+        { label: '🍛 Balanced Lunch', icon: '🍗', meals: ["Lunch Veg", "Lunch Non-Veg", "Lunch Egg"] },
+        { label: '🌆 Evening & Dinner', icon: '🍱', meals: ["Evening Tea/Milk", "Snacks", "Dinner Veg", "Dinner Non-Veg", "Dinner Egg"] }
+    ];
 
-    const getDayTotal = (dayObj) => Object.values(dayObj).reduce((acc, curr) => acc + Number(curr?.price || 0), 0);
+    const getDayTotal = (dayObj) => Object.values(dayObj || {}).reduce((acc, curr) => acc + Number(curr?.price || 0), 0);
 
-    if (!weekly) return <div style={{ color: 'var(--text-secondary)' }}>Loading Weekly Menu Framework...</div>;
+    if (!weekly) return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-sec)' }}>Initializing Neural Menu Processor...</div>;
+
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
     return (
-        <div style={{ background: 'var(--bg-color)', borderRadius: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', background: 'var(--surface-color)', padding: '20px', borderRadius: '12px' }}>
+        <div style={{ animation: 'uiFadeIn 0.4s ease-out' }}>
+            <style>{`
+                @keyframes uiFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+                .day-btn { padding: 12px 20px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text-sec); cursor: pointer; transition: 0.2s; font-weight: 600; font-size: 0.9rem; }
+                .day-btn.active { background: var(--primary-color); color: white; border-color: var(--primary-color); box-shadow: 0 4px 15px rgba(255,123,0,0.3); }
+                .day-btn:hover:not(.active) { background: var(--border); color: var(--text); }
+            `}</style>
+
+            {/* HEADER & GLOBAL ACTIONS */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '15px' }}>
                 <div>
-                    <h3 style={{ margin: 0, color: 'var(--text)' }}>Weekly Menu Framework</h3>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '5px' }}>This serves as the default fallback daily template.</p>
+                    <h2 style={{ margin: 0, letterSpacing: '-0.5px' }}>Master Weekly Plan</h2>
+                    <p style={{ color: 'var(--text-sec)', fontSize: '0.85rem', marginTop: '4px' }}>Global template used for automated system scheduling.</p>
                 </div>
-                <button onClick={saveDay} className="btn-primary" style={{ width: 'auto', background: 'var(--success-color)' }}>Save All Changes</button>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    {activeDay !== 'Monday' && (
+                        <button onClick={() => copyMondayTo(activeDay)} style={{ padding: '10px 18px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+                            📋 Copy Monday
+                        </button>
+                    )}
+                    <button onClick={saveDay} className="btn-primary" style={{ width: 'auto', background: 'var(--success-color)', padding: '10px 24px', borderRadius: '10px' }}>
+                        💾 Save All Changes
+                    </button>
+                </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px' }}>
+            {/* DAY SELECTOR NAVIGATION */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '28px', overflowX: 'auto', paddingBottom: '10px', scrollbarWidth: 'none' }}>
                 {DAYS.map(day => (
-                    <div key={day} style={{ background: 'var(--surface-color)', padding: '25px', borderRadius: '12px', borderTop: day === new Date().toLocaleDateString('en-US', { weekday: 'long' }) ? '4px solid var(--primary-color)' : 'none' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                            <h3 style={{ color: day === new Date().toLocaleDateString('en-US', { weekday: 'long' }) ? 'var(--primary-color)' : 'white', margin: 0 }}>{day} {day === new Date().toLocaleDateString('en-US', { weekday: 'long' }) && '(Today)'}</h3>
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                {day !== 'Monday' && <button onClick={() => copyMondayTo(day)} style={{ background: 'var(--border)', color: 'var(--text)', padding: '6px 12px', borderRadius: '6px', border: '1px solid #444', cursor: 'pointer', fontSize: '0.8rem', transition: '0.2s' }}>Copy Mon</button>}
-                                <button onClick={() => setEditMode(p => ({ ...p, [day]: !p[day] }))} style={{ background: editMode[day] ? 'var(--success-color)' : 'transparent', color: editMode[day] ? 'white' : 'var(--primary-color)', padding: '6px 12px', borderRadius: '6px', border: `1px solid ${editMode[day] ? 'var(--success-color)' : 'var(--primary-color)'}`, cursor: 'pointer', fontSize: '0.8rem', transition: '0.2s' }}>{editMode[day] ? 'Done' : 'Edit'}</button>
-                            </div>
-                        </div>
-
-                        <div style={{ padding: '10px 15px', background: 'var(--card)', borderRadius: '8px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Total Daily Cost</span>
-                            <span style={{ color: 'var(--success-color)', fontWeight: 'bold' }}>₹{getDayTotal(weekly[day])}</span>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {MEALS.map(meal => (
-                                <div key={meal} style={{ display: 'flex', justifyContent: 'space-between', background: '#1a1a1a', padding: '12px', borderRadius: '8px', alignItems: 'center', borderLeft: meal.includes('Egg') ? '3px solid #ff4757' : '3px solid #2ed573' }}>
-                                    <div style={{ flex: 1, paddingRight: '15px' }}>
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-sec)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '5px' }}>{meal} {meal.includes('Egg') ? '🥚' : '🌱'}</p>
-                                        {editMode[day] ? (
-                                            <input value={weekly[day][meal]?.name || ''} onChange={(e) => setWeekly(p => ({ ...p, [day]: { ...p[day], [meal]: { ...p[day][meal], name: e.target.value } } }))} style={{ width: '100%', background: 'var(--border)', color: 'var(--text)', border: '1px solid #444', padding: '8px', borderRadius: '4px' }} placeholder="Item Name" />
-                                        ) : <span style={{ fontWeight: '500', fontSize: '0.95rem' }}>{weekly[day][meal]?.name || <span style={{ color: 'var(--text-sec)' }}>Not Set</span>}</span>}
-                                    </div>
-                                    <div style={{ width: '80px', textAlign: 'right' }}>
-                                        {editMode[day] ? (
-                                            <input type="number" value={weekly[day][meal]?.price || ''} onChange={(e) => setWeekly(p => ({ ...p, [day]: { ...p[day], [meal]: { ...p[day][meal], price: Number(e.target.value) } } }))} style={{ width: '100%', background: 'var(--border)', color: 'var(--success-color)', border: '1px solid #444', padding: '8px', borderRadius: '4px', textAlign: 'right' }} placeholder="₹" />
-                                        ) : <span style={{ color: 'var(--success-color)', fontWeight: 'bold', fontSize: '1.1rem' }}>₹{weekly[day][meal]?.price || 0}</span>}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    <button key={day} onClick={() => setActiveDay(day)} className={`day-btn ${activeDay === day ? 'active' : ''}`}>
+                        {day} {day === today && '•'}
+                    </button>
                 ))}
             </div>
+
+            {/* ACTIVE DAY VIEW */}
+            <div style={{ background: 'var(--surface-color)', borderRadius: '24px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                <div style={{ padding: '24px 30px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--primary-color)' }} />
+                        <h3 style={{ margin: 0 }}>{activeDay} <span style={{ color: 'var(--text-sec)', fontWeight: 'normal', marginLeft: '5px' }}>Configuration</span></h3>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <div style={{ textAlign: 'right' }}>
+                            <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-sec)', textTransform: 'uppercase', fontWeight: 700 }}>Total Daily Cost</p>
+                            <h3 style={{ margin: 0, color: 'var(--success-color)' }}>₹{getDayTotal(weekly[activeDay])}</h3>
+                        </div>
+                        <button 
+                            onClick={() => setEditMode(p => ({ ...p, [activeDay]: !p[activeDay] }))} 
+                            style={{ 
+                                padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem',
+                                background: editMode[activeDay] ? 'var(--success-color)' : 'var(--border)',
+                                color: editMode[activeDay] ? 'white' : 'var(--text)'
+                            }}
+                        >
+                            {editMode[activeDay] ? '✅ Apply' : '✏️ Edit Mode'}
+                        </button>
+                    </div>
+                </div>
+
+                <div style={{ padding: '30px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
+                    {SECTIONS.map((section, sIdx) => (
+                        <div key={sIdx}>
+                            <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--primary-color)', marginBottom: '18px', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '1px' }}>
+                                <span style={{ fontSize: '1.2rem' }}>{section.icon}</span> {section.label}
+                            </h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {section.meals.map(meal => (
+                                    <div key={meal} style={{ 
+                                        background: 'var(--card)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border)',
+                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: '0.3s'
+                                    }}>
+                                        <div style={{ flex: 1, paddingRight: '20px' }}>
+                                            <p style={{ 
+                                                fontSize: '0.65rem', 
+                                                color: MEAL_COLORS[meal] || 'var(--text-sec)', 
+                                                textTransform: 'uppercase', 
+                                                fontWeight: 900, 
+                                                marginBottom: '6px',
+                                                letterSpacing: '0.4px'
+                                            }}>
+                                                {meal}
+                                            </p>
+                                            {editMode[activeDay] ? (
+                                                <input 
+                                                    value={weekly[activeDay][meal]?.name || ''} 
+                                                    onChange={(e) => setWeekly(p => ({ ...p, [activeDay]: { ...p[activeDay], [meal]: { ...p[activeDay][meal], name: e.target.value } } }))} 
+                                                    style={{ width: '100%', background: 'rgba(255,255,255,0.03)', color: 'var(--text)', border: '1px solid var(--border)', padding: '10px', borderRadius: '8px', fontSize: '0.9rem' }} 
+                                                    placeholder="Dish Name" 
+                                                />
+                                            ) : (
+                                                <span style={{ fontWeight: '600', color: weekly[activeDay][meal]?.name ? 'var(--text)' : 'var(--text-sec)', opacity: weekly[activeDay][meal]?.name ? 1 : 0.5 }}>
+                                                    {weekly[activeDay][meal]?.name || 'Empty Slot'}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div style={{ width: '85px', textAlign: 'right' }}>
+                                            {editMode[activeDay] ? (
+                                                <div style={{ position: 'relative' }}>
+                                                    <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--success-color)', fontSize: '0.8rem' }}>₹</span>
+                                                    <input 
+                                                        type="number" 
+                                                        value={weekly[activeDay][meal]?.price || ''} 
+                                                        onChange={(e) => setWeekly(p => ({ ...p, [activeDay]: { ...p[activeDay], [meal]: { ...p[activeDay][meal], price: Number(e.target.value) } } }))} 
+                                                        style={{ width: '100%', background: 'rgba(255,255,255,0.03)', color: 'var(--success-color)', border: '1px solid var(--border)', padding: '10px 10px 10px 20px', borderRadius: '8px', textAlign: 'right', fontWeight: 'bold' }} 
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <span style={{ color: 'var(--success-color)', fontWeight: '800', fontSize: '1.2rem' }}>₹{weekly[activeDay][meal]?.price || 0}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
         </div>
-    )
-}
+    );
+};
 
 const DailyMenuManager = () => {
     const [targetDate, setTargetDate] = useState(() => {
@@ -600,16 +721,6 @@ const DailyMenuManager = () => {
                     </div>
                 )}
 
-                <div style={{ padding: '15px', background: 'var(--card)', borderRadius: '8px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', borderLeft: '4px solid var(--primary-color)' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Total Daily Cost Preview</span>
-                    <span style={{ color: 'var(--success-color)', fontWeight: 'bold', fontSize: '1.2rem' }}>
-                        ₹{isFestival
-                            ? festItems.reduce((acc, c) => acc + Number(c.price || 0), 0)
-                            : getDailyTotal()
-                        }
-                    </span>
-                </div>
-
                 {!isFestival ? (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '15px' }}>
                         {MEALS.map(meal => (
@@ -641,7 +752,7 @@ const DailyMenuManager = () => {
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             {festItems.map((it, idx) => (
-                                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr 100px 40px', gap: '10px', background: '#1a1a1a', padding: '12px', borderRadius: '10px', alignItems: 'flex-end' }}>
+                                <div key={idx} className="mobile-responsive-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1.2fr) minmax(250px, 2fr) 100px 40px', gap: '10px', background: '#1a1a1a', padding: '12px', borderRadius: '10px', alignItems: 'flex-end' }}>
                                     <div>
                                         <label style={{ fontSize: '0.7rem', color: 'var(--text-sec)', display: 'block', marginBottom: '4px' }}>DOMAIN</label>
                                         <select value={it.domain} onChange={e => { const n = [...festItems]; n[idx].domain = e.target.value; setFestItems(n); }} style={{ width: '100%', padding: '9px', background: 'var(--border)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '6px' }}>
@@ -720,6 +831,7 @@ const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [profile, setProfile] = useState({ name: localStorage.getItem('name') });
     const [isDark, setIsDark] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
     const [blockModal, setBlockModal] = useState({ isOpen: false, studentId: null, studentName: '', currentlyBlocked: false });
 
     // Dashboards States
@@ -832,6 +944,17 @@ const AdminDashboard = () => {
         if (!window.confirm('Are you sure you want to revoke this employee?')) return;
         try { await api.delete(`/admin/employees/${id}`); toast.success('Employee Removed'); fetchEmployees(); }
         catch (err) { toast.error('Failed to remove employee'); }
+    };
+
+    const handleDeleteStudent = async (id, name) => {
+        if (!window.confirm(`Are you sure you want to permanently delete student "${name}"? This will also remove all their bookings, wallet history, and associated data. This action cannot be undone.`)) return;
+        try {
+            const { data } = await api.delete(`/admin/students/${id}`);
+            toast.success(data.message);
+            fetchStudents();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Deletion failed');
+        }
     };
 
     const [collectionData, setCollectionData] = useState(null);
@@ -983,7 +1106,7 @@ const AdminDashboard = () => {
                                                     {blocked ? '🚫 Blocked' : '✅ Active'}
                                                 </span>
                                             </td>
-                                            <td style={{ padding: '15px' }}>
+                                            <td style={{ padding: '15px', display: 'flex', gap: '8px' }}>
                                                 <button
                                                     onClick={() => handleBlockStudent(s._id, s.name, blocked)}
                                                     style={{
@@ -992,6 +1115,17 @@ const AdminDashboard = () => {
                                                         borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.82rem'
                                                     }}>
                                                     {blocked ? '🔓 Unblock' : '🔒 Block'}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteStudent(s._id, s.name)}
+                                                    style={{
+                                                        background: 'transparent',
+                                                        border: '1px solid var(--danger-color)',
+                                                        color: 'var(--danger-color)',
+                                                        padding: '6px 14px',
+                                                        borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.82rem'
+                                                    }}>
+                                                    🗑 Delete
                                                 </button>
                                             </td>
                                         </tr>
@@ -1338,7 +1472,6 @@ const AdminDashboard = () => {
         "--text-sec": isDark ? "#94a3b8" : "#64748b",
         "--text-link": isDark ? "var(--primary-color)" : "#2563eb",
         "--text-on-accent": "#ffffff",
-        "--surface-color": isDark ? "#16161a" : "#ffffff",
         "--text-secondary": isDark ? "#94a3b8" : "#64748b",
         "--bg-color": isDark ? "#08080a" : "#f8fafc",
         "--input-bg": isDark ? "#0f0f12" : "#ffffff",
@@ -1349,8 +1482,20 @@ const AdminDashboard = () => {
     return (
         <div className="dashboard-layout" style={{ ...theme, display: 'flex', minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'Inter', transition: 'all 0.3s ease' }}>
 
-            {/* SAAS SIDEBAR */}
-            <div className="sidebar" style={{
+            {/* MOBILE OVERLAY - backdrop when sidebar is open */}
+            <div
+                onClick={() => setSidebarOpen(false)}
+                style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+                    zIndex: 30, backdropFilter: 'blur(4px)',
+                    display: sidebarOpen ? 'block' : 'none',
+                    pointerEvents: sidebarOpen ? 'auto' : 'none'
+                }}
+                className={sidebarOpen ? "mobile-overlay visible" : "mobile-overlay"}
+            />
+
+            {/* SIDEBAR */}
+            <div className={sidebarOpen ? "sidebar open" : "sidebar"} style={{
                 width: '240px',
                 minWidth: '240px',
                 flexShrink: 0,
@@ -1361,9 +1506,9 @@ const AdminDashboard = () => {
                 position: 'sticky',
                 top: 0,
                 height: '100vh',
-                zIndex: 20
+                zIndex: 40
             }}>
-                <div style={{ padding: '25px 20px', marginBottom: '5px' }}>
+                <div style={{ padding: '25px 20px', marginBottom: '5px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <h2 style={{
                         color: 'var(--primary-color)',
                         fontSize: '1.4rem',
@@ -1376,6 +1521,12 @@ const AdminDashboard = () => {
                         <div style={{ width: '6px', height: '18px', background: 'var(--primary-color)', borderRadius: '2px' }}></div>
                         Admin<span style={{ color: 'var(--text)', fontWeight: '300' }}>Panel</span>
                     </h2>
+                    {/* Close button - only visible on mobile */}
+                    <button
+                        onClick={() => setSidebarOpen(false)}
+                        className="sidebar-close-btn"
+                        style={{ background: 'none', border: 'none', color: 'var(--text-sec)', cursor: 'pointer', fontSize: '1.4rem', display: 'none' }}
+                    >✕</button>
                 </div>
 
                 <div style={{ flex: 1, padding: '0 15px', overflowY: 'auto' }}>
@@ -1383,7 +1534,7 @@ const AdminDashboard = () => {
                     {TABS.map(tab => (
                         <div
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
+                            onClick={() => { setActiveTab(tab.id); setSidebarOpen(false); }}
                             style={{
                                 display: 'flex', alignItems: 'center', gap: '15px', padding: '12px 18px', marginBottom: '8px',
                                 borderRadius: '12px', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -1421,66 +1572,75 @@ const AdminDashboard = () => {
             </div>
 
             {/* MAIN CONTENT */}
-            <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', maxHeight: '100vh' }}>
+            <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', maxHeight: '100vh', minWidth: 0 }}>
 
-                {/* TOP NAVBAR */}
                 <div style={{
-                    height: '100px',
+                    minHeight: '70px',
                     display: 'flex',
                     alignItems: 'center',
-                    padding: '0 40px',
+                    padding: '10px 20px',
                     justifyContent: 'space-between',
                     borderBottom: '1px solid var(--border)',
                     background: isDark ? 'rgba(10, 10, 10, 0.8)' : 'rgba(255, 255, 255, 0.8)',
                     backdropFilter: 'blur(12px)',
                     position: 'sticky',
                     top: 0,
-                    zIndex: 10
+                    zIndex: 10,
+                    gap: '12px',
+                    flexWrap: 'wrap'
                 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <h2 style={{ textTransform: 'capitalize', fontWeight: '700', fontSize: '1.5rem', color: 'var(--text)', letterSpacing: '-0.5px' }}>{TABS.find(t => t.id === activeTab)?.label}</h2>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--text-sec)', marginTop: '2px' }}>Overview & Management</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                        {/* Hamburger - only visible on mobile via CSS */}
+                        <button
+                            className="hamburger-btn"
+                            onClick={() => setSidebarOpen(true)}
+                            style={{
+                                background: 'var(--border)', border: 'none', color: 'var(--text)',
+                                padding: '8px 10px', borderRadius: '10px', cursor: 'pointer',
+                                display: 'none', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '1.2rem', flexShrink: 0
+                            }}
+                        >☰</button>
+                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                            <h2 style={{ textTransform: 'capitalize', fontWeight: '700', fontSize: '1.2rem', color: 'var(--text)', letterSpacing: '-0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{TABS.find(t => t.id === activeTab)?.label}</h2>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text-sec)', marginTop: '2px' }}>Overview &amp; Management</span>
+                        </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '25px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                         {/* 🌙 Theme Toggle */}
                         <button
                             onClick={() => setIsDark(!isDark)}
                             style={{
                                 background: 'var(--border)', border: 'none',
-                                color: 'var(--text)', padding: '10px', borderRadius: '12px', cursor: 'pointer',
+                                color: 'var(--text)', padding: '8px', borderRadius: '10px', cursor: 'pointer',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s'
                             }}
                         >
-                            {isDark ? <FaSun size={18} color="#f39c12" /> : <FaMoon size={18} color="#1e90ff" />}
+                            {isDark ? <FaSun size={16} color="#f39c12" /> : <FaMoon size={16} color="#1e90ff" />}
                         </button>
 
-                        <div style={{ position: 'relative', cursor: 'pointer', background: 'var(--border)', padding: '10px', borderRadius: '12px' }}>
-                            <FaBell size={20} color="var(--text-sec)" />
-                            {complaints.some(c => c.status === 'Pending') && <div style={{ position: 'absolute', top: '8px', right: '8px', width: '8px', height: '8px', background: 'var(--danger-color)', borderRadius: '50%', border: '2px solid var(--surface)' }}></div>}
+                        <div style={{ position: 'relative', cursor: 'pointer', background: 'var(--border)', padding: '8px', borderRadius: '10px' }}>
+                            <FaBell size={18} color="var(--text-sec)" />
+                            {complaints.some(c => c.status === 'Pending') && <div style={{ position: 'absolute', top: '6px', right: '6px', width: '8px', height: '8px', background: 'var(--danger-color)', borderRadius: '50%', border: '2px solid var(--surface)' }}></div>}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', background: 'var(--border)', padding: '6px 15px 6px 6px', borderRadius: '50px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--border)', padding: '5px 12px 5px 5px', borderRadius: '50px' }}>
                             <div style={{
-                                width: '38px',
-                                height: '38px',
-                                borderRadius: '50%',
+                                width: '32px', height: '32px', borderRadius: '50%',
                                 background: 'linear-gradient(45deg, var(--primary-color), #ff6b6b)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontWeight: '800',
-                                color: 'var(--text-on-accent)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontWeight: '800', color: 'white', fontSize: '0.85rem',
                                 boxShadow: '0 4px 10px rgba(255, 123, 0, 0.3)'
                             }}>A</div>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <h4 style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text)' }}>{profile.name}</h4>
-                                <p style={{ fontSize: '0.7rem', color: 'var(--text-sec)', fontWeight: '600', textTransform: 'uppercase' }}>Super Admin</p>
+                            <div style={{ display: 'flex', flexDirection: 'column' }} className="admin-name-section">
+                                <h4 style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text)', whiteSpace: 'nowrap' }}>{profile.name}</h4>
+                                <p style={{ fontSize: '0.65rem', color: 'var(--text-sec)', fontWeight: '600', textTransform: 'uppercase' }}>Super Admin</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* DYNAMIC VIEW */}
-                <div style={{ padding: '40px' }}>
+                <div style={{ padding: '20px' }}>
                     {renderContent()}
                 </div>
             </div>

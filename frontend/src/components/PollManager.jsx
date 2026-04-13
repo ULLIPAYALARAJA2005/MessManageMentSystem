@@ -13,9 +13,11 @@ const inp = {
 
 /* ── small label ─────────────────────────────────────────────────────── */
 const Lbl = ({ children, mt }) => (
-  <span style={{ color: '#555', fontSize: '0.72rem', fontWeight: '700',
+  <span style={{
+    color: '#555', fontSize: '0.72rem', fontWeight: '700',
     letterSpacing: '0.07em', display: 'block', marginBottom: '6px',
-    marginTop: mt || 0 }}>
+    marginTop: mt || 0
+  }}>
     {children}
   </span>
 );
@@ -60,48 +62,48 @@ const PollManager = () => {
   const DOMAINS = [
     { key: 'morningTea', label: '🍵 Morning Tea / Milk' },
     { key: 'morningEgg', label: '🥚 Morning Egg' },
-    { key: 'tiffin',     label: '🥪 Tiffin' },
-    { key: 'lunch',      label: '🍱 Lunch' },
-    { key: 'lunchEgg',   label: '🥚 Lunch Egg' },
+    { key: 'tiffin', label: '🥪 Tiffin' },
+    { key: 'lunch', label: '🍱 Lunch' },
+    { key: 'lunchEgg', label: '🥚 Lunch Egg' },
     { key: 'eveningTea', label: '🍵 Evening Tea / Milk' },
-    { key: 'snacks',     label: '🍟 Snacks' },
-    { key: 'dinner',     label: '🍽️ Dinner' },
-    { key: 'dinnerEgg',  label: '🥚 Dinner Egg' },
-    { key: 'none',       label: 'General / Other' },
+    { key: 'snacks', label: '🍟 Snacks' },
+    { key: 'dinner', label: '🍽️ Dinner' },
+    { key: 'dinnerEgg', label: '🥚 Dinner Egg' },
+    { key: 'none', label: 'General / Other' },
   ];
 
   /* create form */
-  const [title, setTitle]           = useState('');
+  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [domain, setDomain]           = useState('none');
+  const [domain, setDomain] = useState('none');
   const [allowMultiple, setAllowMultiple] = useState(false);
-  const [date, setDate]             = useState(() => {
+  const [date, setDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0];
   });
-  const [deadline, setDeadline]     = useState(() => {
+  const [deadline, setDeadline] = useState(() => {
     const d = new Date(); d.setHours(19, 0, 0, 0);
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   });
-  const [options, setOptions]       = useState([{ item: '', price: '' }, { item: '', price: '' }]);
+  const [options, setOptions] = useState([{ item: '', price: '' }, { item: '', price: '' }]);
 
   /* edit modal */
-  const [editPoll, setEditPoll]           = useState(null);
-  const [editTitle, setEditTitle]         = useState('');
+  const [editPoll, setEditPoll] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
-  const [editDomain, setEditDomain]       = useState('none');
-  const [editDate, setEditDate]           = useState('');
-  const [editDeadline, setEditDeadline]   = useState('');
+  const [editDomain, setEditDomain] = useState('none');
+  const [editDate, setEditDate] = useState('');
+  const [editDeadline, setEditDeadline] = useState('');
   const [editAllowMultiple, setEditAllowMultiple] = useState(false);
-  const [editOptions, setEditOptions]     = useState([]);
+  const [editOptions, setEditOptions] = useState([]);
 
   /* socket + fetch */
   useEffect(() => {
     fetchPolls();
     const handles = {
-      pollCreated : (p) => setPolls(prev => [p, ...prev]),
-      pollDeleted : ({ pollId }) => setPolls(prev => prev.filter(p => p._id !== pollId)),
-      voteUpdated : (p) => setPolls(prev => prev.map(x => x._id === p._id ? p : x)),
-      pollUpdated : (p) => setPolls(prev => prev.map(x => x._id === p._id ? p : x)),
+      pollCreated: (p) => setPolls(prev => [p, ...prev]),
+      pollDeleted: ({ pollId }) => setPolls(prev => prev.filter(p => p._id !== pollId)),
+      voteUpdated: (p) => setPolls(prev => prev.map(x => x._id === p._id ? p : x)),
+      pollUpdated: (p) => setPolls(prev => prev.map(x => x._id === p._id ? p : x)),
     };
     Object.entries(handles).forEach(([ev, fn]) => socket.on(ev, fn));
     return () => Object.entries(handles).forEach(([ev, fn]) => socket.off(ev, fn));
@@ -195,7 +197,7 @@ const PollManager = () => {
           <form onSubmit={handleCreate}>
 
             {/* Title + Description */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
               <Sec>
                 <Lbl>POLL TITLE *</Lbl>
                 <input style={inp} value={title} onChange={e => setTitle(e.target.value)}
@@ -215,7 +217,7 @@ const PollManager = () => {
             </div>
 
             {/* Date + Deadline */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
               <Sec>
                 <Lbl>MENU DATE *</Lbl>
                 <input type="date" style={inp} value={date} onChange={e => setDate(e.target.value)} required />
@@ -245,7 +247,7 @@ const PollManager = () => {
                 <span style={{ color: '#444', fontSize: '0.72rem', fontWeight: '600', letterSpacing: '0.05em', textAlign: 'right' }}>PRICE (₹)</span>
                 <span />
               </div>
-              <div style={{ background: '#0a0a0a', borderRadius: '12px', border: '1px solid #1a1a1a', overflow: 'hidden' }}>
+              <div className="mobile-responsive-row" style={{ background: '#0a0a0a', borderRadius: '12px', border: '1px solid #1a1a1a', overflow: 'auto' }}>
                 {options.map((opt, idx) => (
                   <div key={idx} style={{
                     display: 'grid', gridTemplateColumns: '20px 1fr 90px 28px', gap: '8px',
@@ -487,7 +489,7 @@ const PollManager = () => {
                   <span />
                 </div>
 
-                <div style={{ background: '#0a0a0a', borderRadius: '11px', border: '1px solid #1a1a1a', overflow: 'hidden' }}>
+                <div className="mobile-responsive-row" style={{ background: '#0a0a0a', borderRadius: '11px', border: '1px solid #1a1a1a', overflow: 'auto' }}>
                   {editOptions.map((opt, idx) => (
                     <div key={idx} style={{
                       display: 'grid', gridTemplateColumns: '22px 1fr 80px 50px 26px',

@@ -36,7 +36,20 @@ def wallet_summary(current_user):
 @wallet_bp.route('/transactions', methods=['GET'])
 @token_required(['Admin'])
 def get_transactions(current_user):
-    txns = list(db.transactions.find({}).sort('date', -1).limit(200))
+    date_filter = request.args.get('date') # e.g. "2026-04-10" or "all"
+    query = {}
+    
+    if date_filter and date_filter != 'all':
+        query['date'] = {"$regex": f"^{date_filter}"}
+    
+    # Define limit based on the view type
+    limit = 200 
+    if date_filter == 'all':
+        limit = 5000 # High limit for 'Overall' history
+    elif date_filter:
+        limit = 1000 # Increased limit when filtering by date
+        
+    txns = list(db.transactions.find(query).sort('date', -1).limit(limit))
     return jsonify([serialize(t) for t in txns]), 200
 
 @wallet_bp.route('/students', methods=['GET'])

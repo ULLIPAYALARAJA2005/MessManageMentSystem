@@ -1,26 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
-import { 
-    LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
-    Tooltip, Legend, ResponsiveContainer 
+import {
+    LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+    Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import { 
-    FaCalendarAlt, FaChartLine, FaChartBar, FaDownload, 
-    FaArrowUp, FaArrowDown, FaExchangeAlt, FaFilter 
+import {
+    FaCalendarAlt, FaChartLine, FaChartBar, FaDownload,
+    FaArrowUp, FaArrowDown, FaExchangeAlt, FaFilter
 } from 'react-icons/fa';
 
 const MEALS = [
-    "Morning Tea/Milk", "Morning Egg", "Morning Banana", "Tiffin", 
-    "Lunch Veg", "Lunch Non-Veg", "Lunch Egg", 
-    "Evening Tea/Milk", "Snacks", 
+    "Morning Tea/Milk", "Morning Egg", "Morning Banana", "Tiffin",
+    "Lunch Veg", "Lunch Non-Veg", "Lunch Egg",
+    "Evening Tea/Milk", "Snacks",
     "Dinner Veg", "Dinner Non-Veg", "Dinner Egg"
 ];
 
 const MEAL_COLORS = {
     "Morning Tea/Milk": "#3498db", "Morning Egg": "#f1c40f", "Morning Banana": "#ffeb3b", "Tiffin": "#e67e22",
-    "Lunch Veg": "#2ecc71", "Lunch Non-Veg": "#ff7043", "Lunch Egg": "#f39c12", 
-    "Evening Tea/Milk": "#9b59b6", "Snacks": "#e74c3c", 
+    "Lunch Veg": "#2ecc71", "Lunch Non-Veg": "#ff7043", "Lunch Egg": "#f39c12",
+    "Evening Tea/Milk": "#9b59b6", "Snacks": "#e74c3c",
     "Dinner Veg": "#1abc9c", "Dinner Non-Veg": "#2980b9", "Dinner Egg": "#d35400",
     "Total": "#ffffff"
 };
@@ -34,7 +34,7 @@ const AdminAnalytics = () => {
     const [timeRange, setTimeRange] = useState('7D'); // 7D, 30D, 1Y, CUSTOM
     const [customStart, setCustomStart] = useState('');
     const [customEnd, setCustomEnd] = useState('');
-    
+
     const [selectedDomain, setSelectedDomain] = useState('All Bookings');
     const [compareDomains, setCompareDomains] = useState(false);
     const [chartType, setChartType] = useState('line'); // line, bar
@@ -55,11 +55,11 @@ const AdminAnalytics = () => {
         if (timeRange === 'CUSTOM') return;
         const end = new Date();
         let start = new Date();
-        
+
         if (timeRange === '7D') start.setDate(end.getDate() - 6);
         else if (timeRange === '30D') start.setDate(end.getDate() - 29);
         else if (timeRange === '1Y') start.setFullYear(end.getFullYear() - 1);
-        
+
         setCustomStart(formatDate(start));
         setCustomEnd(formatDate(end));
     }, [timeRange]);
@@ -85,13 +85,13 @@ const AdminAnalytics = () => {
 
     const downloadCSV = () => {
         if (!data.length) return toast.error("No data to download");
-        
+
         // Define columns
         let cols = ["Date", "Total Bookings"];
         if (compareDomains) cols = ["Date", "Total Bookings", ...MEALS];
-        
+
         let csvContent = "data:text/csv;charset=utf-8," + cols.join(",") + "\n";
-        
+
         data.forEach(row => {
             let rowData = [row.date, row.total];
             if (compareDomains) {
@@ -99,7 +99,7 @@ const AdminAnalytics = () => {
             }
             csvContent += rowData.join(",") + "\n";
         });
-        
+
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
@@ -129,7 +129,7 @@ const AdminAnalytics = () => {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
+
             {/* --- CONTROLS SECTION --- */}
             <div style={{ background: 'var(--card)', borderRadius: '16px', padding: '20px', display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--border)' }}>
                 {/* Time Range */}
@@ -160,14 +160,14 @@ const AdminAnalytics = () => {
                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                         <FaFilter style={{ position: 'absolute', left: '12px', color: 'var(--text-sec)', pointerEvents: 'none' }} />
-                        <select value={selectedDomain} onChange={e => { setSelectedDomain(e.target.value); if(e.target.value !== 'All Bookings') setCompareDomains(false); }}
+                        <select value={selectedDomain} onChange={e => { setSelectedDomain(e.target.value); if (e.target.value !== 'All Bookings') setCompareDomains(false); }}
                             style={{ padding: '10px 15px 10px 35px', borderRadius: '8px', background: 'var(--input-bg)', color: '#fff', border: '1px solid var(--input-border)', outline: 'none', appearance: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
                             <option value="All Bookings">All Bookings</option>
                             {MEALS.map(m => <option key={m} value={m}>{m}</option>)}
                         </select>
                     </div>
 
-                    <button onClick={() => { setCompareDomains(!compareDomains); if(!compareDomains) setSelectedDomain('All Bookings'); }}
+                    <button onClick={() => { setCompareDomains(!compareDomains); if (!compareDomains) setSelectedDomain('All Bookings'); }}
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 15px', borderRadius: '8px', border: compareDomains ? '1px solid var(--primary-color)' : '1px solid var(--input-border)', background: compareDomains ? 'var(--primary-color)' : 'var(--input-bg)', color: '#fff', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}>
                         <FaExchangeAlt /> Compare Domains
                     </button>
@@ -192,12 +192,12 @@ const AdminAnalytics = () => {
                         <FaChartLine style={{ position: 'absolute', right: '15px', bottom: '15px', fontSize: '3rem', color: 'var(--primary-color)', opacity: 0.1 }} />
                     </div>
                     <div style={{ background: 'var(--card)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
-                        <div style={{ color: 'var(--text-sec)', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', display:'flex', alignItems:'center', gap:'5px' }}><FaArrowUp style={{color:'var(--success-color)'}}/> Peak Day</div>
+                        <div style={{ color: 'var(--text-sec)', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '5px' }}><FaArrowUp style={{ color: 'var(--success-color)' }} /> Peak Day</div>
                         <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#fff', marginTop: '5px' }}>{summary.highestDay}</div>
                         <div style={{ fontSize: '0.85rem', color: 'var(--success-color)', fontWeight: 'bold' }}>{summary.highestCount} bookings</div>
                     </div>
                     <div style={{ background: 'var(--card)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
-                        <div style={{ color: 'var(--text-sec)', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', display:'flex', alignItems:'center', gap:'5px' }}><FaArrowDown style={{color:'var(--danger-color)'}}/> Lowest Day</div>
+                        <div style={{ color: 'var(--text-sec)', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '5px' }}><FaArrowDown style={{ color: 'var(--danger-color)' }} /> Lowest Day</div>
                         <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#fff', marginTop: '5px' }}>{summary.lowestDay}</div>
                         <div style={{ fontSize: '0.85rem', color: 'var(--danger-color)', fontWeight: 'bold' }}>{summary.lowestCount} bookings</div>
                     </div>
@@ -213,7 +213,7 @@ const AdminAnalytics = () => {
                 <h3 style={{ margin: '0 0 25px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <FaChartLine color="var(--primary-color)" /> Booking Volume Trends
                 </h3>
-                
+
                 {loading ? (
                     <div style={{ height: '350px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: '4px solid var(--border)', borderTopColor: 'var(--primary-color)', animation: 'spin 1s linear infinite' }} />
@@ -228,16 +228,16 @@ const AdminAnalytics = () => {
                             <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="var(--primary-color)" stopOpacity={0.8}/>
-                                        <stop offset="95%" stopColor="var(--primary-color)" stopOpacity={0}/>
+                                        <stop offset="5%" stopColor="var(--primary-color)" stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor="var(--primary-color)" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                                <XAxis dataKey="date" stroke="#888" tick={{fontSize: 12}} dy={10} />
-                                <YAxis stroke="#888" tick={{fontSize: 12}} dx={-10} />
+                                <XAxis dataKey="date" stroke="#888" tick={{ fontSize: 12 }} dy={10} />
+                                <YAxis stroke="#888" tick={{ fontSize: 12 }} dx={-10} />
                                 <Tooltip content={<CustomTooltip />} />
                                 <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                                
+
                                 {!compareDomains ? (
                                     <Line type="monotone" dataKey="total" name={selectedDomain} stroke="var(--primary-color)" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 8 }} />
                                 ) : (
@@ -249,11 +249,11 @@ const AdminAnalytics = () => {
                         ) : (
                             <BarChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                                <XAxis dataKey="date" stroke="#888" tick={{fontSize: 12}} dy={10} />
-                                <YAxis stroke="#888" tick={{fontSize: 12}} dx={-10} />
+                                <XAxis dataKey="date" stroke="#888" tick={{ fontSize: 12 }} dy={10} />
+                                <YAxis stroke="#888" tick={{ fontSize: 12 }} dx={-10} />
                                 <Tooltip content={<CustomTooltip />} />
                                 <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                                
+
                                 {!compareDomains ? (
                                     <Bar dataKey="total" name={selectedDomain} fill="var(--primary-color)" radius={[4, 4, 0, 0]} />
                                 ) : (
