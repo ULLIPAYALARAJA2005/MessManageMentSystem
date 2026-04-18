@@ -374,7 +374,7 @@ const PollManager = () => {
                       <div key={opt.id}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
-                            {isTop && i === 0 && <span style={{ fontSize: '0.75rem' }}>🥇</span>}
+
                             <span style={{
                               fontSize: '0.88rem', color: isTop ? '#e0ffe0' : '#909090',
                               fontWeight: isTop ? '600' : '400',
@@ -432,7 +432,7 @@ const PollManager = () => {
 
             <div style={{ padding: '22px 24px' }}>
               {/* Title + Description */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                 <Sec>
                   <Lbl>POLL TITLE</Lbl>
                   <input style={inp} value={editTitle} onChange={e => setEditTitle(e.target.value)} />
@@ -450,7 +450,7 @@ const PollManager = () => {
               </Sec>
 
               {/* Date + Deadline */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
                 <Sec>
                   <Lbl>MENU DATE</Lbl>
                   <input type="date" style={inp} value={editDate} onChange={e => setEditDate(e.target.value)} />
@@ -489,12 +489,13 @@ const PollManager = () => {
                   <span />
                 </div>
 
-                <div className="mobile-responsive-row" style={{ background: '#0a0a0a', borderRadius: '11px', border: '1px solid #1a1a1a', overflow: 'auto' }}>
+                <div className="table-container" style={{ background: '#0a0a0a', borderRadius: '11px', border: '1px solid #1a1a1a' }}>
                   {editOptions.map((opt, idx) => (
                     <div key={idx} style={{
                       display: 'grid', gridTemplateColumns: '22px 1fr 80px 50px 26px',
                       gap: '6px', alignItems: 'center', padding: '8px 10px',
                       borderBottom: idx < editOptions.length - 1 ? '1px solid #141414' : 'none',
+                      minWidth: '450px' /* Prevent extreme squishing in the scrollable div */
                     }}>
                       <span style={{ color: '#3a3a3a', fontSize: '0.78rem', textAlign: 'center' }}>{idx + 1}</span>
                       <input type="text" value={opt.item}

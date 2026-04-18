@@ -128,8 +128,23 @@ def submit_vote(current_user):
     domain = poll.get('domain', 'none')
     domain_badges = current_user.get('domainBadges', {})
     
-    # Fallback to general badge if domain-specific badge is missing or for legacy polls
-    badge = domain_badges.get(domain) if domain and domain != 'none' else current_user.get('badge', 'none')
+    BADGE_RANKS = {"none": 0, "silver": 1, "gold": 2, "diamond": 3}
+    badge = 'none'
+    
+    if domain and domain != 'none':
+        best_rank = 0
+        for d, b in domain_badges.items():
+            if 'egg' not in domain.lower() and 'egg' in d.lower():
+                continue
+            if domain.lower() in d.lower() or d.lower() in domain.lower():
+                rank = BADGE_RANKS.get(b, 0)
+                if rank > best_rank:
+                    best_rank = rank
+                    badge = b
+        if best_rank == 0:
+            badge = current_user.get('badge', 'none')
+    else:
+        badge = current_user.get('badge', 'none')
     
     weight = 1
     if badge == 'silver': weight = 5

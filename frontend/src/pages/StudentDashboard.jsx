@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
-import { FaUtensils, FaHistory, FaExclamationTriangle, FaChartBar, FaSignOutAlt, FaWallet, FaClipboardList, FaUser, FaCommentAlt, FaSyncAlt, FaThumbsUp, FaRegThumbsUp, FaTrash } from 'react-icons/fa';
+import { FaUtensils, FaHistory, FaExclamationTriangle, FaChartBar, FaSignOutAlt, FaWallet, FaClipboardList, FaUser, FaCommentAlt, FaSyncAlt, FaThumbsUp, FaRegThumbsUp, FaTrash, FaUsers } from 'react-icons/fa';
 import { socket } from '../socket';
 import { QRCodeSVG } from 'qrcode.react';
 import { BadgeIcon } from '../components/BadgeManager';
@@ -71,7 +71,22 @@ const StudentDashboard = () => {
     setProfile(prev => ({ ...prev, _id: localStorage.getItem('userId') }));
 
     // 2. WebSockets (Live Data) - Replacing the heavy interval polling
-    socket.on('menuUpdated', () => { toast('Menu was updated by Admin', { icon: '🍽️' }); fetchMenu(bookingOffset); fetchWeeklyMenu(); });
+    socket.on('menuUpdated', (data) => {
+      if (data?.action === 'deleted') {
+        // Check if the deleted date matches the student's booking date
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + bookingOffset);
+        const bookingDateStr = formatDateLocal(targetDate);
+        if (!data.date || data.date === bookingDateStr) {
+          setMenu(null); // Immediately clear — no weekly fallback shown
+          toast('Menu for tomorrow was removed by Admin', { icon: '🗑️' });
+        }
+      } else {
+        toast('Menu was updated by Admin', { icon: '🍽️' });
+        fetchMenu(bookingOffset);
+        fetchWeeklyMenu();
+      }
+    });
     socket.on('mealStatusUpdate', () => { fetchHistory(); fetchActiveBookings(); });
     socket.on('walletUpdated', (data) => {
       fetchProfile(); fetchHistory();
@@ -87,6 +102,7 @@ const StudentDashboard = () => {
       setHasFeedbackBadge(true);
       toast('📝 New Feedback Available! Please submit your weekly feedback.', { icon: '📋', duration: 5000 });
     });
+    socket.on('pollUpdated', (p) => setPolls(prev => prev.map(poll => poll._id === p._id ? p : poll)));
     socket.on('studentBlocked', (data) => {
       if (data.userId === localStorage.getItem('userId')) {
         setProfile(prev => ({ ...prev, isBlocked: true, blockReason: data.reason || '' }));
@@ -112,6 +128,7 @@ const StudentDashboard = () => {
       socket.off('feedbackCycleCreated');
       socket.off('studentBlocked');
       socket.off('studentUnblocked');
+      socket.off('pollUpdated');
     };
   }, []);
 
@@ -837,11 +854,25 @@ const StudentDashboard = () => {
                     </p>
                     <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '0.75rem', background: '#333', color: '#ccc', padding: '3px 10px', borderRadius: '6px' }}>
-                        🔗 {DOMAIN_LABELS[poll.domain] || 'General'}
+                        🔗 {DOMAIN_LABELS[poll.domain] || (poll.domain === 'lunch' ? '🍱 Lunch' : poll.domain === 'dinner' ? '🍽️ Dinner' : 'General')}
                       </span>
                       {(() => {
                         const pollDomain = poll.domain || 'none';
-                        const userBadge = profile.domainBadges?.[pollDomain] || profile.badge || 'none';
+                        let userBadge = 'none';
+                        if (pollDomain !== 'none') {
+                          const ranks = { none: 0, silver: 1, gold: 2, diamond: 3 };
+                          let bestRank = 0;
+                          for (const [d, b] of Object.entries(profile.domainBadges || {})) {
+                            if (!pollDomain.toLowerCase().includes('egg') && d.toLowerCase().includes('egg')) continue;
+                            if (d.toLowerCase().includes(pollDomain.toLowerCase()) || pollDomain.toLowerCase().includes(d.toLowerCase())) {
+                              if ((ranks[b] || 0) > bestRank) { bestRank = ranks[b] || 0; userBadge = b; }
+                            }
+                          }
+                          if (bestRank === 0) userBadge = profile.badge || 'none';
+                        } else {
+                          userBadge = profile.badge || 'none';
+                        }
+
                         const weight = userBadge === 'diamond' ? 10 : userBadge === 'gold' ? 7 : userBadge === 'silver' ? 5 : 1;
                         if (weight === 1) return null;
                         return (
@@ -1021,7 +1052,7 @@ const StudentDashboard = () => {
               <p style={{ color: 'var(--text-secondary)', marginTop: '5px' }}>Go to the Meal Booking tab to place an order.</p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gap: '20px' }}>
+            <div className="responsive-grid">
               {activeBookings.map(b => (
                 <div key={b._id} style={{ background: 'var(--surface-color)', borderRadius: '15px', padding: '20px', border: '1px solid #333' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #222', paddingBottom: '10px' }}>
@@ -1222,7 +1253,7 @@ const StudentDashboard = () => {
     { id: 'booked', label: 'Booked Meals', icon: <FaClipboardList /> },
     { id: 'weekly', label: 'Weekly Menu', icon: <FaClipboardList /> },
     { id: 'history', label: 'History & Attend.', icon: <FaHistory /> },
-    { id: 'complaints', label: 'Community Feedbacks', icon: <FaExclamationTriangle /> },
+    { id: 'complaints', label: 'Complaints', icon: <FaExclamationTriangle /> },
     { id: 'polls', label: 'Polls', icon: <FaChartBar /> },
     { id: 'feedback', label: 'Weekly Feedback', icon: <FaCommentAlt />, badge: hasFeedbackBadge },
   ];
@@ -1230,11 +1261,7 @@ const StudentDashboard = () => {
   return (
     <div className="dashboard-layout" style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0a0a0a', overflow: 'hidden' }}>
       
-      {/* MOBILE OVERLAY */}
-      <div 
-        onClick={() => setSidebarOpen(false)}
-        className={sidebarOpen ? "mobile-overlay visible" : "mobile-overlay"}
-      />
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>}
 
       {/* TOPMOST NAVIGATION BAR (Sticky) */}
       <header style={{
@@ -1281,17 +1308,17 @@ const StudentDashboard = () => {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* SIDEBAR */}
-        <div className={sidebarOpen ? "sidebar open" : "sidebar"} style={{
+        <div className={`sidebar ${sidebarOpen ? 'open' : ''}`} style={{
           width: '240px', minWidth: '240px', flexShrink: 0,
           background: 'var(--surface-color)', padding: '25px 20px',
           display: 'flex', flexDirection: 'column', borderRight: '1px solid #222',
-          overflowY: 'auto', zIndex: 1000
+          height: '100%', zIndex: 1000
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }} className="hamburger-btn">
              <h3 style={{ margin: 0, color: 'var(--primary-color)' }}>Smart Mess</h3>
-             <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', color: '#888', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+             <button onClick={() => setSidebarOpen(false)} className="sidebar-close-btn" style={{ background: 'none', border: 'none', color: '#888', fontSize: '1.2rem', cursor: 'pointer', display: 'none' }}>✕</button>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+          <div className="no-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, overflowY: 'auto' }}>
             {navItems.map(item => (
               <div
                 key={item.id}

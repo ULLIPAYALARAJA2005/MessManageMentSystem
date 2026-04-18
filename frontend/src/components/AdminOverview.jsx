@@ -122,6 +122,13 @@ const AdminOverview = ({ isDark, onNavigate }) => {
         socket.on('mealCompleted', handleUpdate);
         socket.on('complaintAdded', handleUpdate);
         socket.on('mealStatusUpdate', handleUpdate);
+        socket.on('walletUpdated', handleUpdate);
+        socket.on('pollCreated', handleUpdate);
+        socket.on('pollUpdated', handleUpdate);
+        socket.on('pollDeleted', handleUpdate);
+        socket.on('employeeAdded', handleUpdate);
+        socket.on('employeeRemoved', handleUpdate);
+        socket.on('complaintUpdated', handleUpdate);
 
         return () => {
             socket.off('bookingCreated', handleUpdate);
@@ -129,6 +136,13 @@ const AdminOverview = ({ isDark, onNavigate }) => {
             socket.off('mealCompleted', handleUpdate);
             socket.off('complaintAdded', handleUpdate);
             socket.off('mealStatusUpdate', handleUpdate);
+            socket.off('walletUpdated', handleUpdate);
+            socket.off('pollCreated', handleUpdate);
+            socket.off('pollUpdated', handleUpdate);
+            socket.off('pollDeleted', handleUpdate);
+            socket.off('employeeAdded', handleUpdate);
+            socket.off('employeeRemoved', handleUpdate);
+            socket.off('complaintUpdated', handleUpdate);
         };
     }, [fetchOverview]);
 
@@ -182,7 +196,7 @@ const AdminOverview = ({ isDark, onNavigate }) => {
             </div>
 
             {/* ── 1. TOP SUMMARY CARDS ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '18px', marginBottom: '32px' }}>
+            <div className="responsive-grid" style={{ marginBottom: '32px' }}>
                 <SummaryCard isDark={isDark} icon={<FaUserGraduate />} label="Total Students" value={s.totalStudents || 0} accent="#3b82f6" />
                 <SummaryCard isDark={isDark} icon={<FaUtensils />} label="Today's Bookings" value={s.totalBookingsToday || 0} trend={bookingTrend} trendLabel={`Yesterday: ${s.yesterdayBookings}`} accent="#f97316" />
                 <SummaryCard isDark={isDark} icon={<FaCheckCircle />} label="Meals Completed" value={s.mealsCompleted || 0} accent="#10b981" />
@@ -208,7 +222,7 @@ const AdminOverview = ({ isDark, onNavigate }) => {
                         <div style={{ height: '12px', background: isDark ? '#1e1e24' : '#f1f5f9', borderRadius: '10px', overflow: 'hidden', marginBottom: '20px' }}>
                             <div style={{ width: `${health}%`, height: '100%', background: `linear-gradient(90deg, ${healthColor}, ${healthColor}cc)`, borderRadius: '10px', transition: 'width 1s ease' }} />
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px' }}>
                             {[
                                 { label: 'Completion Rate', value: s.totalBookingsToday > 0 ? `${Math.round(s.mealsCompleted / s.totalBookingsToday * 100)}%` : '100%', color: '#10b981' },
                                 { label: 'Feedback Score', value: `${s.avgRating || 0}/5`, color: '#f59e0b' },
@@ -227,7 +241,7 @@ const AdminOverview = ({ isDark, onNavigate }) => {
             {/* ── 3. MEAL BREAKDOWN TABLE ── */}
             <Card isDark={isDark} style={{ marginBottom: '32px' }}>
                 <SectionTitle isDark={isDark} icon={<FaUtensils />} title="Today's Meal Breakdown" subtitle={`Live status for ${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}`} />
-                <div style={{ overflowX: 'auto', borderRadius: '10px', border: `1px solid ${borderColor}` }}>
+                <div className="table-container">
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ background: isDark ? '#0f0f12' : '#f8fafc' }}>
@@ -276,7 +290,7 @@ const AdminOverview = ({ isDark, onNavigate }) => {
             </Card>
 
             {/* ── 4. ANALYTICS CHARTS ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '20px', marginBottom: '32px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '20px', marginBottom: '32px' }} className="responsive-grid-complex">
                 {/* Weekly Bookings Bar Chart */}
                 <Card isDark={isDark}>
                     <SectionTitle isDark={isDark} icon={<FaChartBar />} title="Weekly Bookings" subtitle="Last 7 days booking volume" />
@@ -443,15 +457,30 @@ const AdminOverview = ({ isDark, onNavigate }) => {
                         {data?.pollData ? (
                             <div>
                                 <p style={{ fontSize: '0.95rem', fontWeight: '600', marginBottom: '16px', lineHeight: 1.4 }}>{data.pollData.question}</p>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', background: isDark ? '#0f0f12' : '#f8fafc', borderRadius: '10px', borderLeft: '3px solid var(--primary-color)' }}>
-                                    <div>
-                                        <div style={{ fontSize: '0.78rem', color: subText }}>Leading</div>
-                                        <div style={{ fontWeight: '700', color: 'var(--primary-color)' }}>{data.pollData.leading}</div>
-                                    </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <div style={{ fontSize: '0.78rem', color: subText }}>Total Votes</div>
-                                        <div style={{ fontWeight: '700', fontSize: '1.2rem' }}>{data.pollData.totalVotes}</div>
-                                    </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {(data.pollData.options || []).map((opt, i) => {
+                                        const pct = data.pollData.totalVotes > 0 ? Math.round((opt.votes / data.pollData.totalVotes) * 100) : 0;
+                                        const isLeading = opt.label === data.pollData.leading;
+                                        const barColor = isLeading ? 'var(--primary-color)' : (isDark ? '#334155' : '#94a3b8');
+                                        return (
+                                            <div key={i}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                                    <span style={{ fontSize: '0.85rem', fontWeight: isLeading ? '700' : '500', color: isLeading ? 'var(--primary-color)' : subText }}>
+                                                        {opt.label}
+                                                    </span>
+                                                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: isLeading ? 'var(--primary-color)' : subText }}>
+                                                        {opt.votes} vote{opt.votes !== 1 ? 's' : ''} ({pct}%)
+                                                    </span>
+                                                </div>
+                                                <div style={{ height: '8px', background: isDark ? '#1e1e24' : '#f1f5f9', borderRadius: '10px', overflow: 'hidden' }}>
+                                                    <div style={{ width: `${pct}%`, height: '100%', background: barColor, borderRadius: '10px', transition: 'width 0.8s ease' }} />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div style={{ marginTop: '14px', textAlign: 'center', fontSize: '0.78rem', color: subText, fontWeight: '600' }}>
+                                    Total Votes: {data.pollData.totalVotes}
                                 </div>
                             </div>
                         ) : (

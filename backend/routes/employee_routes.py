@@ -93,7 +93,13 @@ def mark_complete(current_user):
         return jsonify({"message": "Already Completed"}), 400
         
     update_field = f"status.{actual_meal_key}"
-    db.bookings.update_one({"_id": ObjectId(booking_id)}, {"$set": {update_field: "Completed"}})
+    db.bookings.update_one(
+        {"_id": ObjectId(booking_id)}, 
+        {
+            "$set": {update_field: "Completed"},
+            "$addToSet": {"verifiedBy": str(current_user["_id"])}
+        }
+    )
     
     socketio.emit('mealStatusUpdate', {"bookingId": booking_id, "mealType": actual_meal_key, "status": "Completed"})
     return jsonify({"message": f"{section} marked as Completed!"}), 200

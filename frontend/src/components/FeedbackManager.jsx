@@ -559,7 +559,7 @@ const SchedulerTab = ({ cycles, config, onRefresh, globalTemplate }) => {
                       style={{ padding: '9px 12px', background: '#111', border: '1px solid #333', color: '#fff', borderRadius: 8 }}
                       placeholder="Title"
                     />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
                       <input
                         type="datetime-local" value={editForm.deadline?.slice(0, 16)}
                         onChange={e => setEditForm(p => ({ ...p, deadline: e.target.value }))}
@@ -913,7 +913,8 @@ const HistoryTab = () => {
 
           <div style={{ background: 'var(--surface-color)', padding: '22px 24px', borderRadius: 14 }}>
             <h4 style={{ marginBottom: 14 }}>📋 Cycle History</h4>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+            <div className="table-container">
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
               <thead>
                 <tr style={{ background: '#1a1a1a', color: '#888' }}>
                   {['Week / Cycle', 'Date', 'Responses', 'Avg Score', 'Status'].map(h => (
@@ -949,6 +950,7 @@ const HistoryTab = () => {
               </tbody>
             </table>
           </div>
+        </div>
         </>
       )}
     </div>

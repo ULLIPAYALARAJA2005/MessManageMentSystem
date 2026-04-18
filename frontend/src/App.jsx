@@ -34,7 +34,22 @@ function App() {
 
   return (
     <Router>
-      <Toaster position="top-right" />
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          duration: 3500,
+          style: {
+            background: '#333',
+            color: '#fff',
+          },
+          success: {
+            duration: 4000,
+            theme: {
+              primary: 'var(--primary-color)',
+            },
+          },
+        }}
+      />
       <PageWrapper>
         <Routes>
           <Route path="/" element={<Landing />} />

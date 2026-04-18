@@ -38,6 +38,7 @@ const AdminAnalytics = () => {
     const [selectedDomain, setSelectedDomain] = useState('All Bookings');
     const [compareDomains, setCompareDomains] = useState(false);
     const [chartType, setChartType] = useState('line'); // line, bar
+    const [metric, setMetric] = useState('bookings'); // bookings, revenue
 
     // Helper: format YYYY-MM-DD
     const formatDate = (date) => {
@@ -68,12 +69,12 @@ const AdminAnalytics = () => {
         if (customStart && customEnd) {
             fetchAnalytics();
         }
-    }, [customStart, customEnd, selectedDomain]);
+    }, [customStart, customEnd, selectedDomain, metric]);
 
     const fetchAnalytics = async () => {
         setLoading(true);
         try {
-            const res = await api.get(`/admin/analytics/bookings?startDate=${customStart}&endDate=${customEnd}&domain=${selectedDomain}`);
+            const res = await api.get(`/admin/analytics/bookings?startDate=${customStart}&endDate=${customEnd}&domain=${selectedDomain}&metric=${metric}`);
             setData(res.data.data);
             setSummary(res.data.summary);
         } catch (err) {
@@ -177,6 +178,11 @@ const AdminAnalytics = () => {
                         <button onClick={() => setChartType('bar')} style={{ padding: '10px', background: chartType === 'bar' ? '#333' : 'transparent', color: chartType === 'bar' ? 'var(--primary-color)' : 'var(--text-sec)', border: 'none', cursor: 'pointer' }}><FaChartBar /></button>
                     </div>
 
+                    <div style={{ display: 'flex', background: 'var(--input-bg)', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--input-border)' }}>
+                        <button onClick={() => setMetric('bookings')} style={{ padding: '8px 15px', background: metric === 'bookings' ? 'var(--primary-color)' : 'transparent', color: metric === 'bookings' ? '#fff' : 'var(--text-sec)', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>Bookings</button>
+                        <button onClick={() => setMetric('revenue')} style={{ padding: '8px 15px', background: metric === 'revenue' ? '#2ed573' : 'transparent', color: metric === 'revenue' ? '#fff' : 'var(--text-sec)', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>Revenue</button>
+                    </div>
+
                     <button onClick={downloadCSV} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 15px', borderRadius: '8px', border: 'none', background: 'var(--success-color)', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}>
                         <FaDownload /> Export
                     </button>
@@ -187,23 +193,23 @@ const AdminAnalytics = () => {
             {summary && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
                     <div style={{ background: 'var(--card)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)', position: 'relative', overflow: 'hidden' }}>
-                        <div style={{ color: 'var(--text-sec)', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase' }}>Total Bookings</div>
-                        <div style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--primary-color)', marginTop: '5px' }}>{summary.totalBookings.toLocaleString()}</div>
-                        <FaChartLine style={{ position: 'absolute', right: '15px', bottom: '15px', fontSize: '3rem', color: 'var(--primary-color)', opacity: 0.1 }} />
+                        <div style={{ color: 'var(--text-sec)', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase' }}>{metric === 'bookings' ? 'Total Bookings' : 'Total Revenue'}</div>
+                        <div style={{ fontSize: '2rem', fontWeight: '900', color: metric === 'revenue' ? '#2ed573' : 'var(--primary-color)', marginTop: '5px' }}>{metric === 'revenue' ? '₹' : ''}{summary.totalBookings.toLocaleString()}</div>
+                        <FaChartLine style={{ position: 'absolute', right: '15px', bottom: '15px', fontSize: '3rem', color: metric === 'revenue' ? '#2ed573' : 'var(--primary-color)', opacity: 0.1 }} />
                     </div>
                     <div style={{ background: 'var(--card)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
                         <div style={{ color: 'var(--text-sec)', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '5px' }}><FaArrowUp style={{ color: 'var(--success-color)' }} /> Peak Day</div>
                         <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#fff', marginTop: '5px' }}>{summary.highestDay}</div>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--success-color)', fontWeight: 'bold' }}>{summary.highestCount} bookings</div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--success-color)', fontWeight: 'bold' }}>{metric === 'revenue' ? '₹' : ''}{summary.highestCount.toLocaleString()} {metric}</div>
                     </div>
                     <div style={{ background: 'var(--card)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
                         <div style={{ color: 'var(--text-sec)', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '5px' }}><FaArrowDown style={{ color: 'var(--danger-color)' }} /> Lowest Day</div>
                         <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#fff', marginTop: '5px' }}>{summary.lowestDay}</div>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--danger-color)', fontWeight: 'bold' }}>{summary.lowestCount} bookings</div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--danger-color)', fontWeight: 'bold' }}>{metric === 'revenue' ? '₹' : ''}{summary.lowestCount.toLocaleString()} {metric}</div>
                     </div>
                     <div style={{ background: 'var(--card)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
                         <div style={{ color: 'var(--text-sec)', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase' }}>Daily Average</div>
-                        <div style={{ fontSize: '2rem', fontWeight: '900', color: '#f39c12', marginTop: '5px' }}>{summary.average}</div>
+                        <div style={{ fontSize: '2rem', fontWeight: '900', color: '#f39c12', marginTop: '5px' }}>{metric === 'revenue' ? '₹' : ''}{summary.average.toLocaleString()}</div>
                     </div>
                 </div>
             )}
@@ -211,7 +217,7 @@ const AdminAnalytics = () => {
             {/* --- MAIN CHART --- */}
             <div style={{ background: 'var(--card)', padding: '25px', borderRadius: '20px', border: '1px solid var(--border)', minHeight: '450px' }}>
                 <h3 style={{ margin: '0 0 25px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <FaChartLine color="var(--primary-color)" /> Booking Volume Trends
+                    <FaChartLine color={metric === 'revenue' ? '#2ed573' : 'var(--primary-color)'} /> {metric === 'bookings' ? 'Booking Volume Trends' : 'Revenue Trends'}
                 </h3>
 
                 {loading ? (
@@ -239,7 +245,7 @@ const AdminAnalytics = () => {
                                 <Legend wrapperStyle={{ paddingTop: '20px' }} />
 
                                 {!compareDomains ? (
-                                    <Line type="monotone" dataKey="total" name={selectedDomain} stroke="var(--primary-color)" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 8 }} />
+                                    <Line type="monotone" dataKey="total" name={selectedDomain === 'All Bookings' ? (metric === 'revenue' ? 'Total Revenue' : 'All Bookings') : (metric === 'revenue' ? `${selectedDomain} (Revenue)` : selectedDomain)} stroke="var(--primary-color)" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 8 }} />
                                 ) : (
                                     MEALS.map(meal => (
                                         <Line key={meal} type="monotone" dataKey={(row) => row.domains[meal] || 0} name={meal} stroke={MEAL_COLORS[meal]} strokeWidth={2} dot={false} activeDot={{ r: 5 }} />
@@ -255,7 +261,7 @@ const AdminAnalytics = () => {
                                 <Legend wrapperStyle={{ paddingTop: '20px' }} />
 
                                 {!compareDomains ? (
-                                    <Bar dataKey="total" name={selectedDomain} fill="var(--primary-color)" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="total" name={selectedDomain === 'All Bookings' ? (metric === 'revenue' ? 'Total Revenue' : 'All Bookings') : (metric === 'revenue' ? `${selectedDomain} (Revenue)` : selectedDomain)} fill="var(--primary-color)" radius={[4, 4, 0, 0]} />
                                 ) : (
                                     MEALS.map(meal => (
                                         <Bar key={meal} dataKey={(row) => row.domains[meal] || 0} name={meal} stackId="a" fill={MEAL_COLORS[meal]} />
@@ -272,9 +278,9 @@ const AdminAnalytics = () => {
                 <div style={{ background: 'var(--card)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
                     <h3 style={{ margin: '0 0 15px 0', fontSize: '1rem', color: 'var(--text-sec)' }}>Qualitative Insights</h3>
                     <ul style={{ margin: 0, paddingLeft: '20px', color: 'var(--text)', lineHeight: '1.6', fontSize: '0.9rem' }}>
-                        <li>The highest volume of bookings recorded was <strong>{summary.highestCount}</strong> on <strong>{summary.highestDay}</strong>. Ensure adequate kitchen staff and resource availability during similar peak periods.</li>
-                        <li>Conversely, the lowest volume occurred on <strong>{summary.lowestDay}</strong> ({summary.lowestCount} bookings), indicating a potential operational lull where resources can be re-allocated.</li>
-                        <li>Over this selected period, the mess serves an average of <strong>{summary.average}</strong> {selectedDomain !== 'All Bookings' ? selectedDomain : 'meals'} per day. Use this baseline for ordering bulk perishables.</li>
+                        <li>The highest volume of {metric} recorded was <strong>{metric === 'revenue' ? '₹' : ''}{summary.highestCount.toLocaleString()}</strong> on <strong>{summary.highestDay}</strong>. {metric === 'bookings' ? 'Ensure adequate kitchen staff and resource availability during similar peak periods.' : 'This marks the most lucrative day in the selected period.'}</li>
+                        <li>Conversely, the lowest volume occurred on <strong>{summary.lowestDay}</strong> ({metric === 'revenue' ? '₹' : ''}{summary.lowestCount.toLocaleString()} {metric}), indicating a potential operational lull where resources can be re-allocated.</li>
+                        <li>Over this selected period, the mess averages <strong>{metric === 'revenue' ? '₹' : ''}{summary.average.toLocaleString()}</strong> in {metric} per day. Use this baseline for organizational planning.</li>
                     </ul>
                 </div>
             )}

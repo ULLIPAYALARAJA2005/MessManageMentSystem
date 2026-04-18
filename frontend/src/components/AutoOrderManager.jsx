@@ -71,6 +71,25 @@ const AutoOrderManager = () => {
     }
   };
 
+  const handleSelectAll = (day) => {
+    if (!enabled) return;
+    setPlan(prev => {
+      const currentDayPlan = prev[day] || {};
+      const allSelected = MEALS.every(m => (currentDayPlan[m.key] || 0) > 0);
+      const newQty = allSelected ? 0 : 1;
+      
+      const updatedDayPlan = {};
+      MEALS.forEach(m => {
+        updatedDayPlan[m.key] = newQty;
+      });
+      
+      return {
+        ...prev,
+        [day]: updatedDayPlan
+      };
+    });
+  };
+
   const handleQtyChange = (day, meal, val) => {
     let num = parseInt(val);
     if (isNaN(num) || num < 0) num = 0;
@@ -226,12 +245,15 @@ const AutoOrderManager = () => {
                   <div style={{ fontWeight: '400', fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>~₹{PREVIEW_PRICES[m.key]}</div>
                 </th>
               ))}
+              <th style={{ padding: '16px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '0.8rem', color: '#94a3b8', fontWeight: '600' }}>Quick Select</th>
             </tr>
           </thead>
           <tbody>
             {DAYS.map((day, dIdx) => (
               <tr key={day} style={{ borderBottom: dIdx < DAYS.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
-                <td style={{ padding: '16px', fontWeight: '600', color: '#e2e8f0' }}>{day}</td>
+                <td style={{ padding: '16px', fontWeight: '600', color: '#e2e8f0' }}>
+                  <span>{day}</span>
+                </td>
                 {MEALS.map(m => {
                   const qty = plan[day]?.[m.key] || 0;
                   const isActive = qty > 0;
@@ -257,6 +279,28 @@ const AutoOrderManager = () => {
                     </td>
                   );
                 })}
+                <td style={{ padding: '16px', textAlign: 'center', borderBottom: dIdx < DAYS.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
+                  <button 
+                    onClick={() => handleSelectAll(day)}
+                    disabled={!enabled}
+                    style={{ 
+                      background: 'rgba(255,123,0,0.1)', 
+                      border: '1px solid rgba(255,123,0,0.2)', 
+                      color: 'var(--primary-color)', 
+                      padding: '6px 12px', 
+                      borderRadius: '8px', 
+                      fontSize: '0.75rem', 
+                      cursor: enabled ? 'pointer' : 'not-allowed',
+                      fontWeight: 'bold',
+                      transition: '0.2s',
+                      opacity: enabled ? 1 : 0.5
+                    }}
+                    onMouseOver={e => enabled && (e.currentTarget.style.background = 'rgba(255,123,0,0.2)')}
+                    onMouseOut={e => enabled && (e.currentTarget.style.background = 'rgba(255,123,0,0.1)')}
+                  >
+                    {MEALS.every(m => (plan[day]?.[m.key] || 0) > 0) ? 'Deselect All' : 'Select All'}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

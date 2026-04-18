@@ -18,9 +18,12 @@ const Login = () => {
       localStorage.setItem('role', role);
       localStorage.setItem('name', name);
       localStorage.setItem('userId', userId);
-      
-      toast.success(`Welcome back, ${name}!`);
-      
+
+      if (!sessionStorage.getItem('welcomeShown')) {
+        sessionStorage.setItem('welcomeShown', 'true');
+        toast.success(`Welcome back, ${name}!`, { duration: 4000 });
+      }
+
       navigate(`/${role.toLowerCase()}`);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Login failed');

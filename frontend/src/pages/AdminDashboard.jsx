@@ -102,13 +102,6 @@ const WalletManager = () => {
         return matchSearch && matchType;
     });
 
-    const sCards = [
-        { label: 'Total Revenue', value: `₹${summary.totalRevenue}`, color: '#2ed573', icon: '💰' },
-        { label: "Today's Collection", value: `₹${summary.todayCollection}`, color: '#ff7b00', icon: '📅' },
-        { label: 'Total Wallet Balance', value: `₹${summary.totalWalletBalance}`, color: '#1e90ff', icon: '👛' },
-        { label: 'Low Balance Students', value: summary.lowBalanceCount, color: '#ff4757', icon: '⚠️' },
-    ];
-
     const SECTIONS = [
         { id: 'overview', label: '📊 Overview' },
         { id: 'transactions', label: '📋 Transactions' },
@@ -119,16 +112,6 @@ const WalletManager = () => {
 
     return (
         <div>
-            {/* Summary cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                {sCards.map(c => (
-                    <div key={c.label} style={{ background: 'var(--surface-color)', padding: '20px', borderRadius: '12px', borderLeft: `4px solid ${c.color}` }}>
-                        <div style={{ fontSize: '1.6rem' }}>{c.icon}</div>
-                        <p style={{ color: 'var(--text-sec)', fontSize: '0.8rem', marginTop: '8px' }}>{c.label}</p>
-                        <h2 style={{ color: c.color, marginTop: '4px' }}>{c.value}</h2>
-                    </div>
-                ))}
-            </div>
 
             {/* Section nav tabs */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
@@ -384,7 +367,7 @@ const WeeklyMenuManager = () => {
     };
 
     const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    
+
     const SECTIONS = [
         { label: '🌅 Early Morning', icon: '🍳', meals: ["Morning Tea/Milk", "Morning Egg", "Morning Banana"] },
         { label: '🥪 Morning Tiffin', icon: '🥪', meals: ["Tiffin"] },
@@ -446,9 +429,9 @@ const WeeklyMenuManager = () => {
                             <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-sec)', textTransform: 'uppercase', fontWeight: 700 }}>Total Daily Cost</p>
                             <h3 style={{ margin: 0, color: 'var(--success-color)' }}>₹{getDayTotal(weekly[activeDay])}</h3>
                         </div>
-                        <button 
-                            onClick={() => setEditMode(p => ({ ...p, [activeDay]: !p[activeDay] }))} 
-                            style={{ 
+                        <button
+                            onClick={() => setEditMode(p => ({ ...p, [activeDay]: !p[activeDay] }))}
+                            style={{
                                 padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem',
                                 background: editMode[activeDay] ? 'var(--success-color)' : 'var(--border)',
                                 color: editMode[activeDay] ? 'white' : 'var(--text)'
@@ -467,27 +450,27 @@ const WeeklyMenuManager = () => {
                             </h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 {section.meals.map(meal => (
-                                    <div key={meal} style={{ 
+                                    <div key={meal} style={{
                                         background: 'var(--card)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border)',
                                         display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: '0.3s'
                                     }}>
                                         <div style={{ flex: 1, paddingRight: '20px' }}>
-                                            <p style={{ 
-                                                fontSize: '0.65rem', 
-                                                color: MEAL_COLORS[meal] || 'var(--text-sec)', 
-                                                textTransform: 'uppercase', 
-                                                fontWeight: 900, 
+                                            <p style={{
+                                                fontSize: '0.65rem',
+                                                color: MEAL_COLORS[meal] || 'var(--text-sec)',
+                                                textTransform: 'uppercase',
+                                                fontWeight: 900,
                                                 marginBottom: '6px',
                                                 letterSpacing: '0.4px'
                                             }}>
                                                 {meal}
                                             </p>
                                             {editMode[activeDay] ? (
-                                                <input 
-                                                    value={weekly[activeDay][meal]?.name || ''} 
-                                                    onChange={(e) => setWeekly(p => ({ ...p, [activeDay]: { ...p[activeDay], [meal]: { ...p[activeDay][meal], name: e.target.value } } }))} 
-                                                    style={{ width: '100%', background: 'rgba(255,255,255,0.03)', color: 'var(--text)', border: '1px solid var(--border)', padding: '10px', borderRadius: '8px', fontSize: '0.9rem' }} 
-                                                    placeholder="Dish Name" 
+                                                <input
+                                                    value={weekly[activeDay][meal]?.name || ''}
+                                                    onChange={(e) => setWeekly(p => ({ ...p, [activeDay]: { ...p[activeDay], [meal]: { ...p[activeDay][meal], name: e.target.value } } }))}
+                                                    style={{ width: '100%', background: 'rgba(255,255,255,0.03)', color: 'var(--text)', border: '1px solid var(--border)', padding: '10px', borderRadius: '8px', fontSize: '0.9rem' }}
+                                                    placeholder="Dish Name"
                                                 />
                                             ) : (
                                                 <span style={{ fontWeight: '600', color: weekly[activeDay][meal]?.name ? 'var(--text)' : 'var(--text-sec)', opacity: weekly[activeDay][meal]?.name ? 1 : 0.5 }}>
@@ -499,11 +482,11 @@ const WeeklyMenuManager = () => {
                                             {editMode[activeDay] ? (
                                                 <div style={{ position: 'relative' }}>
                                                     <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--success-color)', fontSize: '0.8rem' }}>₹</span>
-                                                    <input 
-                                                        type="number" 
-                                                        value={weekly[activeDay][meal]?.price || ''} 
-                                                        onChange={(e) => setWeekly(p => ({ ...p, [activeDay]: { ...p[activeDay], [meal]: { ...p[activeDay][meal], price: Number(e.target.value) } } }))} 
-                                                        style={{ width: '100%', background: 'rgba(255,255,255,0.03)', color: 'var(--success-color)', border: '1px solid var(--border)', padding: '10px 10px 10px 20px', borderRadius: '8px', textAlign: 'right', fontWeight: 'bold' }} 
+                                                    <input
+                                                        type="number"
+                                                        value={weekly[activeDay][meal]?.price || ''}
+                                                        onChange={(e) => setWeekly(p => ({ ...p, [activeDay]: { ...p[activeDay], [meal]: { ...p[activeDay][meal], price: Number(e.target.value) } } }))}
+                                                        style={{ width: '100%', background: 'rgba(255,255,255,0.03)', color: 'var(--success-color)', border: '1px solid var(--border)', padding: '10px 10px 10px 20px', borderRadius: '8px', textAlign: 'right', fontWeight: 'bold' }}
                                                     />
                                                 </div>
                                             ) : (
@@ -726,12 +709,13 @@ const DailyMenuManager = () => {
                         {MEALS.map(meal => (
                             <div key={meal} style={{ display: 'flex', justifyContent: 'space-between', background: '#1a1a1a', padding: '15px', borderRadius: '8px', alignItems: 'center' }}>
                                 <div style={{ flex: 1, paddingRight: '15px' }}>
-                                    <p style={{ fontSize: '0.8rem', textTransform: 'uppercase', marginBottom: '8px',
+                                    <p style={{
+                                        fontSize: '0.8rem', textTransform: 'uppercase', marginBottom: '8px',
                                         color: meal.includes('Veg') && !meal.includes('Non') ? '#4caf50'
                                             : meal.includes('Non-Veg') ? '#ff7043'
-                                            : meal.includes('Egg') ? '#f39c12'
-                                            : meal === 'Morning Banana' ? '#ffeb3b'
-                                            : 'var(--text-sec)'
+                                                : meal.includes('Egg') ? '#f39c12'
+                                                    : meal === 'Morning Banana' ? '#ffeb3b'
+                                                        : 'var(--text-sec)'
                                     }}>
                                         {meal === 'Morning Banana' ? '🍌' : meal.includes('Non-Veg') ? '🍗' : meal.includes('Veg') && !meal.includes('Egg') ? '🌱' : meal.includes('Egg') ? '🥚' : meal === 'Snacks' ? '🍿' : '🍵'} {meal}
                                     </p>
@@ -1047,13 +1031,11 @@ const AdminDashboard = () => {
         { id: 'bookings', label: 'Bookings', icon: <FaCalendarCheck /> },
         { id: 'students', label: 'Students', icon: <FaUserGraduate /> },
         { id: 'employees', label: 'Employees', icon: <FaUserTie /> },
-        { id: 'store', label: 'Store Mgmt', icon: <FaStore /> },
         { id: 'wallet', label: 'Wallet', icon: <FaWallet /> },
         { id: 'badges', label: 'Badges & Rewards', icon: <FaAward /> },
-        { id: 'feedback', label: 'Feedbacks', icon: <FaComments /> },
+        { id: 'feedback', label: 'Complaints', icon: <FaComments /> },
         { id: 'weekly-feedback', label: 'Weekly Feedback', icon: <FaClipboardList /> },
         { id: 'analytics', label: 'Analytics', icon: <FaChartPie /> },
-        { id: 'settings', label: 'Settings', icon: <FaCog /> },
     ];
 
     const pieColors = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
@@ -1482,20 +1464,13 @@ const AdminDashboard = () => {
     return (
         <div className="dashboard-layout" style={{ ...theme, display: 'flex', minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'Inter', transition: 'all 0.3s ease' }}>
 
+
+
             {/* MOBILE OVERLAY - backdrop when sidebar is open */}
-            <div
-                onClick={() => setSidebarOpen(false)}
-                style={{
-                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-                    zIndex: 30, backdropFilter: 'blur(4px)',
-                    display: sidebarOpen ? 'block' : 'none',
-                    pointerEvents: sidebarOpen ? 'auto' : 'none'
-                }}
-                className={sidebarOpen ? "mobile-overlay visible" : "mobile-overlay"}
-            />
+            {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>}
 
             {/* SIDEBAR */}
-            <div className={sidebarOpen ? "sidebar open" : "sidebar"} style={{
+            <div className={`sidebar ${sidebarOpen ? 'open' : ''}`} style={{
                 width: '240px',
                 minWidth: '240px',
                 flexShrink: 0,

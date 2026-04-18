@@ -150,14 +150,14 @@ def get_full_overview(current_user):
 
     rev_pipeline = [
         {"$match": {"date": today_str}},
-        {"$group": {"_id": None, "total": {"$sum": "$totalPrice"}}}
+        {"$group": {"_id": None, "total": {"$sum": "$price"}}}
     ]
     rev_agg = list(db.bookings.aggregate(rev_pipeline))
     today_revenue = rev_agg[0]["total"] if rev_agg else 0
 
     yesterday_rev_pipeline = [
         {"$match": {"date": yesterday_str}},
-        {"$group": {"_id": None, "total": {"$sum": "$totalPrice"}}}
+        {"$group": {"_id": None, "total": {"$sum": "$price"}}}
     ]
     yesterday_rev_agg = list(db.bookings.aggregate(yesterday_rev_pipeline))
     yesterday_revenue = yesterday_rev_agg[0]["total"] if yesterday_rev_agg else 0
@@ -208,17 +208,24 @@ def get_full_overview(current_user):
     today_menu = db.menus.find_one({"date": today_str}, {"_id": 0})
     menu_status = "Published" if today_menu else "Not Published"
 
-    active_poll = db.polls.find_one({"isActive": True})
+    active_poll = db.polls.find_one({"status": "active"})
     poll_data = None
     if active_poll:
         options = active_poll.get("options", [])
-        total_votes = sum(len(o.get("votes", [])) for o in options)
-        leading = max(options, key=lambda o: len(o.get("votes", [])), default={}) if options else {}
+        def count_votes(o):
+            v = o.get("votes", 0)
+            return v if isinstance(v, int) else len(v)
+        total_votes = sum(count_votes(o) for o in options)
+        leading = max(options, key=count_votes, default={}) if options else {}
         poll_data = {
-            "question": active_poll.get("question", ""),
+            "question": active_poll.get("title", active_poll.get("question", "")),
             "totalVotes": total_votes,
-            "leading": leading.get("text", "N/A"),
-            "leadingVotes": len(leading.get("votes", []))
+            "leading": leading.get("item", leading.get("text", "N/A")),
+            "leadingVotes": count_votes(leading) if leading else 0,
+            "options": [
+                {"label": o.get("item", o.get("text", "")), "votes": count_votes(o)}
+                for o in options
+            ]
         }
 
     wallet_pipeline = [
@@ -373,15 +380,20 @@ def set_menu(current_user):
     if not date_str or not items or not deadline: return jsonify({"message": "Required fields missing"}), 400
     
     update_doc = {
-        "date": date_str, 
-        "items": items, 
-        "deadline": deadline, 
+        "date": date_str,
+        "items": items,
+        "deadline": deadline,
         "isFestival": is_festival,
         "festivalName": festival_name,
         "description": description,
         "createdAt": datetime.now()
     }
-    db.menus.update_one({"date": date_str}, {"$set": update_doc}, upsert=True)
+    # Ensure the deleted flag is removed when re-publishing a menu
+    db.menus.update_one(
+        {"date": date_str},
+        {"$set": update_doc, "$unset": {"deleted": ""}},
+        upsert=True
+    )
     socketio.emit('menuUpdated', {"type": "daily", "date": date_str})
     
     # Instantly trigger the auto-order engine so it books meals within milliseconds of publish
@@ -395,7 +407,11 @@ def set_menu(current_user):
 @token_required(['Admin', 'Student', 'Employee'])
 def get_menu(current_user, date):
     menu = db.menus.find_one({"date": date}, {"_id": 0})
-    
+
+    # If the menu was explicitly deleted by admin, do NOT fall back to weekly template
+    if menu and menu.get('deleted'):
+        return jsonify({"message": "Menu not found for this date"}), 404
+
     if not menu:
         try:
             day_name = datetime.strptime(date, "%Y-%m-%d").strftime("%A")
@@ -406,11 +422,9 @@ def get_menu(current_user, date):
                     "items": weekly[day_name],
                     "deadline": "23:59"  # Weekly fallback: allow booking all day
                 }
-                # Removed: db.menus.insert_one({**menu, "createdAt": datetime.now()})
-                # This prevents deleted menus from re-appearing in the "Published" list.
         except Exception as ex:
             print("Menu fallback error:", ex)
-            
+
     if not menu:
         return jsonify({"message": "Menu not found for this date"}), 404
 
@@ -428,8 +442,13 @@ def get_menu(current_user, date):
 @admin_bp.route('/menu/<date>', methods=['DELETE'])
 @token_required(['Admin'])
 def delete_menu(current_user, date):
-    res = db.menus.delete_one({"date": date})
-    if res.deleted_count > 0:
+    # Mark as deleted instead of physically removing, so weekly fallback is suppressed
+    res = db.menus.update_one(
+        {"date": date},
+        {"$set": {"date": date, "deleted": True, "items": {}}},
+        upsert=True
+    )
+    if res.matched_count > 0 or res.upserted_id:
         socketio.emit('menuUpdated', {"type": "daily", "date": date, "action": "deleted"})
         return jsonify({"message": f"Menu for {date} deleted successfully"}), 200
     return jsonify({"message": "Menu not found"}), 404
@@ -437,7 +456,8 @@ def delete_menu(current_user, date):
 @admin_bp.route('/menus', methods=['GET'])
 @token_required(['Admin'])
 def get_all_menus(current_user):
-    menus = list(db.menus.find({}, {"_id": 0}).sort("date", -1))
+    # Exclude menus marked as deleted from the admin published list
+    menus = list(db.menus.find({"deleted": {"$ne": True}}, {"_id": 0}).sort("date", -1))
     return jsonify(menus), 200
 
 @admin_bp.route('/complaints', methods=['GET'])
@@ -553,6 +573,8 @@ def get_analytics_bookings(current_user):
     end_date = request.args.get('endDate')
     domain = request.args.get('domain', 'All Bookings')
     
+    metric = request.args.get('metric', 'bookings')
+    
     if not start_date or not end_date:
         return jsonify({"message": "startDate and endDate are required"}), 400
         
@@ -585,17 +607,45 @@ def get_analytics_bookings(current_user):
             continue
             
         meal_qtys = b.get('mealQty', {})
-        for section, qty_str in meal_qtys.items():
-            qty = int(qty_str)
+        meals_list = b.get('meals', [])
+        
+        section_qty = {}
+        for meal_str in meals_list:
+            if ' x' in meal_str:
+                parts = meal_str.rsplit(' x', 1)
+                base_name = parts[0].strip()
+                try:
+                    qty = int(parts[1])
+                except:
+                    qty = 1
+            else:
+                base_name = meal_str.strip()
+                qty = 1
+            section_qty[base_name] = qty
+            
+        for section, qty_val in meal_qtys.items():
+            try:
+                section_qty[section] = int(qty_val)
+            except:
+                pass
+                
+        for section, qty in section_qty.items():
             if domain != 'All Bookings' and domain != section:
                 continue # Filter out if not matching domain
             
-            data_map[b_date]["total"] += qty
-            total_bookings += qty
+            value = qty
+            if metric == 'revenue':
+                price = int(b.get('itemPrices', {}).get(section, 0))
+                if b.get('isGuest', False): 
+                    price = int(price * 1.5)
+                value = qty * price
+                
+            data_map[b_date]["total"] += value
+            total_bookings += value
             
             if section not in data_map[b_date]["domains"]:
                 data_map[b_date]["domains"][section] = 0
-            data_map[b_date]["domains"][section] += qty
+            data_map[b_date]["domains"][section] += value
 
     data_list = sorted(list(data_map.values()), key=lambda x: x['date'])
     

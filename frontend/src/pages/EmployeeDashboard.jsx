@@ -98,6 +98,7 @@ const EmployeeDashboard = () => {
   const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0 });
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const idInputRef = useRef(null);
 
   const [analysisData, setAnalysisData] = useState([]);
@@ -366,9 +367,12 @@ const EmployeeDashboard = () => {
   };
 
   return (
-    <div style={{ ...theme, display: 'flex', height: '100vh', background: 'var(--dash-bg)', color: 'var(--dash-text)', transition: 'all 0.3s ease', fontFamily: "'Inter', sans-serif" }}>
+    <div className="dashboard-layout" style={{ ...theme, display: 'flex', height: '100vh', background: 'var(--dash-bg)', color: 'var(--dash-text)', transition: 'all 0.3s ease', fontFamily: "'Inter', sans-serif" }}>
+      {/* Sidebar Overlay */}
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>}
+
       {/* 📂 LEFT SIDEBAR */}
-      <div style={{
+      <div className={`sidebar ${sidebarOpen ? 'open' : ''}`} style={{
         width: '240px',
         minWidth: '240px',
         flexShrink: 0,
@@ -397,6 +401,7 @@ const EmployeeDashboard = () => {
           <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', letterSpacing: '-0.5px' }}>
             Employee Hub
           </h2>
+          <button onClick={() => setSidebarOpen(false)} className="sidebar-close-btn" style={{ background: 'none', border: 'none', color: 'var(--dash-text-sec)', fontSize: '1.2rem', cursor: 'pointer', display: 'none' }}>✕</button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, overflowY: 'auto' }}>
@@ -406,7 +411,7 @@ const EmployeeDashboard = () => {
           {SECTIONS.map(s => (
             <button
               key={s.id}
-              onClick={() => setSelectedSection(s.id)}
+              onClick={() => { setSelectedSection(s.id); setSidebarOpen(false); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px',
                 borderRadius: '10px', border: 'none', cursor: 'pointer', textAlign: 'left',
@@ -675,6 +680,15 @@ const EmployeeDashboard = () => {
             {/* 📅 TOP BAR */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', background: 'var(--dash-surface)', padding: '20px', borderRadius: '15px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="hamburger-btn"
+                  style={{
+                    display: 'none', alignItems: 'center', justifyContent: 'center',
+                    background: 'var(--dash-surface)', border: '1px solid var(--dash-border)',
+                    color: 'var(--dash-text)', padding: '10px', borderRadius: '10px', cursor: 'pointer'
+                  }}
+                >☰</button>
                 <h1 style={{ margin: 0, fontSize: '1.8rem' }}>{selectedSection} Dashboard</h1>
                 <div style={{ display: 'flex', alignItems: 'center', background: 'var(--dash-card)', padding: '10px 15px', borderRadius: '10px', gap: '10px' }}>
                   <FaCalendarAlt style={{ color: '#007bff' }} />
