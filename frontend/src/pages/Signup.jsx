@@ -30,7 +30,7 @@ const Signup = () => {
           <p>Create a New Student Account</p>
         </div>
         <form onSubmit={handleSignup}>
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '10px' }} className="signup-row">
             <div className="form-group" style={{ flex: 1 }}>
               <label>Full Name</label>
               <input type="text" name="name" placeholder="John Doe" onChange={handleChange} required />

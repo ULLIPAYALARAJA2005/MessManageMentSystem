@@ -37,7 +37,7 @@ export default function StudentHistoryDashboard({ history }) {
     startOfWeek.setHours(0, 0, 0, 0);
 
     const filteredHistory = history.filter(b => {
-      const bDate = new Date(b.date);
+      const bDate = new Date(b.date.replace(/-/g, '/'));
       if (selectedDateFilter === 'year') {
         return bDate.getFullYear() === currentYear || (now - bDate < 365 * 24 * 60 * 60 * 1000);
       }
@@ -147,7 +147,7 @@ export default function StudentHistoryDashboard({ history }) {
 
     heatmapGrid.forEach(day => {
       if (currentMonthNum !== day.month) {
-        const mStr = new Date(day.date).toLocaleDateString('default', { month: 'short' });
+        const mStr = new Date(day.date.replace(/-/g, '/')).toLocaleDateString('default', { month: 'short' });
         currentMonth = { name: mStr, year: new Date(day.date).getFullYear(), days: [] };
         months.push(currentMonth);
         currentMonthNum = day.month;
@@ -325,7 +325,7 @@ export default function StudentHistoryDashboard({ history }) {
               <div>
                 <h3 style={{ margin: 0, color: 'var(--primary-color)', fontSize: '1.5rem' }}>Receipt</h3>
                 <p style={{ margin: '5px 0 0 0', color: '#ccc', fontSize: '0.95rem' }}>
-                  {new Date(selectedDay.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  {new Date(selectedDay.date.replace(/-/g, '/')).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </p>
               </div>
               <button

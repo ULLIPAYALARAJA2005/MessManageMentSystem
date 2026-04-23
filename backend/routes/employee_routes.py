@@ -104,6 +104,44 @@ def mark_complete(current_user):
     socketio.emit('mealStatusUpdate', {"bookingId": booking_id, "mealType": actual_meal_key, "status": "Completed"})
     return jsonify({"message": f"{section} marked as Completed!"}), 200
 
+@employee_bp.route('/complete-all', methods=['POST'])
+@token_required(['Employee'])
+def mark_all_complete(current_user):
+    data = request.json
+    date_str = data.get('date')
+    section = data.get('section')
+    
+    if not date_str or not section:
+        return jsonify({"message": "Date and Section required"}), 400
+        
+    # Find all bookings for that date
+    query = {"date": date_str}
+    bookings = list(db.bookings.find(query))
+    
+    update_count = 0
+    meal_key_lower = section.lower()
+    
+    for b in bookings:
+        status_obj = b.get('status', {})
+        # Find the actual key (case-insensitive)
+        actual_key = next((k for k in status_obj.keys() if k.lower() == meal_key_lower), None)
+        
+        if actual_key and status_obj[actual_key] != "Completed":
+            update_field = f"status.{actual_key}"
+            db.bookings.update_one(
+                {"_id": b["_id"]},
+                {
+                    "$set": {update_field: "Completed"},
+                    "$addToSet": {"verifiedBy": str(current_user["_id"])}
+                }
+            )
+            update_count += 1
+            
+    if update_count > 0:
+        socketio.emit('mealStatusUpdate', {"action": "bulkComplete", "section": section, "count": update_count})
+        
+    return jsonify({"message": f"Successfully marked {update_count} bookings as Completed"}), 200
+
 @employee_bp.route('/undo', methods=['POST'])
 @token_required(['Employee'])
 def mark_undo(current_user):

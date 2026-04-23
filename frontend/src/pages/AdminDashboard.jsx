@@ -628,7 +628,13 @@ const DailyMenuManager = () => {
             toast.success(`Menu for ${dateToDelete} deleted successfully`);
             fetchPublishedMenus();
             if (targetDate === dateToDelete) {
-                setTargetDate(prev => prev); // re-trigger fetch
+                // Manually reset state since setTargetDate(prev => prev) won't trigger useEffect
+                const emptyItems = {};
+                MEALS.forEach(m => emptyItems[m] = { name: '', price: 0 });
+                setItems(emptyItems);
+                setIsFestival(false);
+                setFestivalName('');
+                setDescription('');
             }
         } catch (err) {
             toast.error(err.response?.data?.message || "Failed to delete menu");
@@ -1118,7 +1124,12 @@ const AdminDashboard = () => {
                     </div>
                 );
             case 'bookings':
-                const filteredBookings = (bookings || []).filter(b => b.date === selectedBookingDate);
+                const filteredBookings = (bookings || []).filter(b => b.date === selectedBookingDate)
+                    .sort((a, b) => {
+                        const dateA = a.createdAt ? new Date(a.createdAt) : 0;
+                        const dateB = b.createdAt ? new Date(b.createdAt) : 0;
+                        return dateB - dateA;
+                    });
                 const domainCounts = MEALS.reduce((acc, m) => {
                     let totalItems = 0;
                     filteredBookings.forEach(b => {
@@ -1307,8 +1318,8 @@ const AdminDashboard = () => {
                                                 <tr key={b._id} style={{ borderBottom: '1px solid var(--border)', transition: '0.2s' }}>
                                                     <td style={{ padding: '15px' }}>{b.date}</td>
                                                     <td style={{ padding: '15px' }}>
-                                                        <div style={{ fontWeight: '600' }}>{b.studentName || 'Guest User'}</div>
-                                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-sec)' }}>{b.studentRollId || 'GUEST-ID'}</div>
+                                                        <div style={{ fontWeight: '600' }}>{b.studentName || 'Guest User'} {b.isGuest && <span style={{ color: 'var(--primary-color)', fontSize: '0.8rem', marginLeft: '6px' }}>(Guest)</span>}</div>
+                                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-sec)' }}>{b.studentRollId || (b.isGuest ? 'GUEST-SECURED' : 'N/A')}</div>
                                                     </td>
                                                     <td style={{ padding: '15px' }}>
                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>

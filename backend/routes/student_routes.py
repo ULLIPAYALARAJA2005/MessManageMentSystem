@@ -3,6 +3,7 @@ from middleware import token_required
 from database import db
 from bson.objectid import ObjectId
 import datetime
+from datetime import timezone
 from socket_instance import socketio
 from badge_logic import update_student_stats
 
@@ -54,8 +55,8 @@ def book_meal(current_user):
         return jsonify({"message": "Date and meals required"}), 400
         
     menu = db.menus.find_one({"date": date_str})
-    if not menu:
-        return jsonify({"message": "Menu not yet published for this date"}), 400
+    if not menu or menu.get('deleted'):
+        return jsonify({"message": "Menu not yet published or has been removed for this date"}), 400
     if menu:
         now = datetime.datetime.now()
         if "T" in menu.get('deadline', ''):
@@ -111,7 +112,7 @@ def book_meal(current_user):
         "isGuest": is_guest,
         "price": total_price,
         "status": {base_name: "Booked" for base_name in item_codes.keys()},
-        "createdAt": datetime.datetime.now()
+        "createdAt": datetime.datetime.now(timezone.utc)
     }
     db.bookings.insert_one(booking)
     
@@ -138,7 +139,7 @@ def cancel_booking(current_user, id):
     # Check deadline
     date_str = booking['date']
     menu = db.menus.find_one({"date": date_str})
-    if menu:
+    if menu and not menu.get('deleted'):
         now = datetime.datetime.now()
         if "T" in menu.get('deadline', ''):
             deadline_datetime = datetime.datetime.strptime(menu['deadline'], "%Y-%m-%dT%H:%M")
@@ -200,7 +201,7 @@ def handle_complaints(current_user):
             "status": "Pending",
             "likes": 0,
             "likedBy": [],
-            "createdAt": datetime.datetime.now()
+            "createdAt": datetime.datetime.now(timezone.utc)
         }
         db.complaints.insert_one(complaint)
         socketio.emit('complaintAdded', {"message": "New complaint submitted"})
@@ -267,8 +268,11 @@ def get_polls(current_user):
 @token_required(['Student'])
 def get_active_bookings(current_user):
     today = datetime.datetime.now().strftime('%Y-%m-%d')
-    # Show bookings for today onwards
-    bookings = list(db.bookings.find({"studentId": str(current_user['_id']), "date": {"$gte": today}}).sort("date", 1))
+    # Show bookings for today onwards, sorted by latest booking activity first
+    bookings = list(db.bookings.find({
+        "studentId": str(current_user['_id']), 
+        "date": {"$gte": today}
+    }).sort([("createdAt", -1), ("_id", -1)]))
     for b in bookings:
         b['_id'] = str(b['_id'])
     return jsonify(bookings), 200

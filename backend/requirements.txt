@@ -6,3 +6,8 @@ pymongo
 PyJWT
 bcrypt
 dnspython
+
+gunicorn
+eventlet
+gevent
+gevent-websocket

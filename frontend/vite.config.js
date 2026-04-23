@@ -1,16 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import basicSsl from '@vitejs/plugin-basic-ssl'
 
-// https://vite.dev/config/
+// Local-only development server
 export default defineConfig({
   plugins: [
     react(),
-    basicSsl()
   ],
   server: {
-    host: true,
-    https: true,
+    host: 'localhost',
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

@@ -1,6 +1,6 @@
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 import random
 from database import db
 from bson import ObjectId
@@ -127,7 +127,7 @@ def process_auto_orders():
                 "isGuest": False,
                 "price": total_price,
                 "status": {base_name: "Booked" for base_name in item_codes.keys()},
-                "createdAt": datetime.now(),
+                "createdAt": datetime.now(timezone.utc),
                 "isAutoBooked": True
             }
             db.bookings.insert_one(booking)
@@ -137,7 +137,7 @@ def process_auto_orders():
                 "studentId": str(user['_id']),
                 "type": "success",
                 "message": f"Your meals for {target_str} ({day_name}) are booked automatically. Used ₹{total_price}.",
-                "createdAt": datetime.now(),
+                "createdAt": datetime.now(timezone.utc),
                 "read": False
             })
             print(f"Auto-booked for {user['name']} on {target_str} ({day_name})")

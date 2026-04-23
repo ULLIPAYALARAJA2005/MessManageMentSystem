@@ -407,12 +407,15 @@ def set_menu(current_user):
 @token_required(['Admin', 'Student', 'Employee'])
 def get_menu(current_user, date):
     menu = db.menus.find_one({"date": date}, {"_id": 0})
+    is_student = current_user['role'] == 'Student'
 
-    # If the menu was explicitly deleted by admin, do NOT fall back to weekly template
+    # If the menu was explicitly deleted by admin, show nothing
     if menu and menu.get('deleted'):
         return jsonify({"message": "Menu not found for this date"}), 404
 
-    if not menu:
+    # Weekly template fallback: ONLY for Admin and Employee — NOT for students.
+    # Students must only see menus that admin has explicitly published for their date.
+    if not menu and not is_student:
         try:
             day_name = datetime.strptime(date, "%Y-%m-%d").strftime("%A")
             weekly = db.weekly_menu.find_one({"_id": "default"})
@@ -420,7 +423,7 @@ def get_menu(current_user, date):
                 menu = {
                     "date": date,
                     "items": weekly[day_name],
-                    "deadline": "23:59"  # Weekly fallback: allow booking all day
+                    "deadline": "23:59"
                 }
         except Exception as ex:
             print("Menu fallback error:", ex)
@@ -428,11 +431,28 @@ def get_menu(current_user, date):
     if not menu:
         return jsonify({"message": "Menu not found for this date"}), 404
 
-    # Filter empty items for students/employees to avoid showing placeholders
+    # Enforce booking deadline for students
+    if is_student:
+        now = datetime.now()
+        deadline_str = menu.get('deadline')
+
+        if deadline_str:
+            try:
+                if 'T' in deadline_str:
+                    deadline_dt = datetime.strptime(deadline_str, "%Y-%m-%dT%H:%M")
+                else:
+                    deadline_time = datetime.strptime(deadline_str, "%H:%M").time()
+                    deadline_dt = datetime.combine(datetime.strptime(date, "%Y-%m-%d").date(), deadline_time)
+
+                if now > deadline_dt:
+                    return jsonify({"message": "Booking deadline has passed for this menu"}), 404
+            except Exception as e:
+                print(f"Error parsing deadline in get_menu: {e}")
+
+    # Filter out empty/placeholder items for students and employees
     if current_user['role'] in ['Student', 'Employee']:
         filtered_items = {}
         for meal_type, data in menu.get('items', {}).items():
-            # If name is present and price > 0, include it
             if data.get('name') and int(data.get('price', 0)) > 0:
                 filtered_items[meal_type] = data
         menu['items'] = filtered_items
@@ -562,7 +582,8 @@ def delete_student(current_user, id):
 @admin_bp.route('/bookings', methods=['GET'])
 @token_required(['Admin'])
 def get_bookings(current_user):
-    bookings = list(db.bookings.find({}).sort("createdAt", -1))
+    # Sort by createdAt descending, use _id as fallback for identical creation times or missing fields
+    bookings = list(db.bookings.find({}).sort([("createdAt", -1), ("_id", -1)]))
     for b in bookings: b['_id'] = str(b['_id'])
     return jsonify(bookings), 200
 

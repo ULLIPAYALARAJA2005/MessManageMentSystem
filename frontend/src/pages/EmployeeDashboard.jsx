@@ -344,6 +344,31 @@ const EmployeeDashboard = () => {
     }
   };
 
+  const handleMarkAllComplete = async () => {
+    if (bookings.length === 0) return;
+    const pendingCount = bookings.filter(b => b.status !== 'Completed').length;
+    if (pendingCount === 0) {
+      toast.error('No pending bookings to mark complete');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to mark ${pendingCount} pending bookings for ${selectedSection} as completed?`)) return;
+
+    setLoading(true);
+    try {
+      const res = await api.post('/employee/complete-all', {
+        date: selectedDate,
+        section: selectedSection
+      });
+      toast.success(res.data.message);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to mark all complete');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const theme = {
     "--dash-bg": isDark ? "#0f0f13" : "#f8fafc",
     "--dash-surface": isDark ? "#181820" : "#ffffff",
@@ -560,7 +585,7 @@ const EmployeeDashboard = () => {
             </div>
           </div>
         ) : selectedSection === 'QR Scanner' ? (
-          <div style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }} className="qr-scanner-layout">
             {/* Left: Camera View */}
             <div style={{ flex: 1, background: 'var(--dash-surface)', padding: '25px', borderRadius: '15px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -678,18 +703,18 @@ const EmployeeDashboard = () => {
         ) : (
           <>
             {/* 📅 TOP BAR */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', background: 'var(--dash-surface)', padding: '20px', borderRadius: '15px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <div className="employee-topbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', background: 'var(--dash-surface)', padding: '20px', borderRadius: '15px', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
                 <button
                   onClick={() => setSidebarOpen(true)}
                   className="hamburger-btn"
                   style={{
-                    display: 'none', alignItems: 'center', justifyContent: 'center',
+                    alignItems: 'center', justifyContent: 'center',
                     background: 'var(--dash-surface)', border: '1px solid var(--dash-border)',
                     color: 'var(--dash-text)', padding: '10px', borderRadius: '10px', cursor: 'pointer'
                   }}
                 >☰</button>
-                <h1 style={{ margin: 0, fontSize: '1.8rem' }}>{selectedSection} Dashboard</h1>
+                <h1 style={{ margin: 0, fontSize: 'clamp(1.2rem, 4vw, 1.8rem)' }}>{selectedSection} Dashboard</h1>
                 <div style={{ display: 'flex', alignItems: 'center', background: 'var(--dash-card)', padding: '10px 15px', borderRadius: '10px', gap: '10px' }}>
                   <FaCalendarAlt style={{ color: '#007bff' }} />
                   <input
@@ -899,7 +924,32 @@ const EmployeeDashboard = () => {
 
             {/* 📋 BOOKINGS LIST (TABLE) */}
             <div style={{ background: 'var(--dash-surface)', borderRadius: '15px', padding: '25px' }}>
-              <h2 style={{ margin: '0 0 20px' }}>Bookings List</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 style={{ margin: 0 }}>Bookings List</h2>
+                {bookings.some(b => b.status !== 'Completed') && (
+                  <button
+                    onClick={handleMarkAllComplete}
+                    style={{
+                      background: 'var(--success-color)',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '10px 20px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseOver={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                    onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+                  >
+                    <FaCheckCircle /> Mark All Complete
+                  </button>
+                )}
+              </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #333' }}>

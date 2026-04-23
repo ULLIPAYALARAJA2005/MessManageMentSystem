@@ -78,9 +78,13 @@ const StudentDashboard = () => {
         targetDate.setDate(targetDate.getDate() + bookingOffset);
         const bookingDateStr = formatDateLocal(targetDate);
         if (!data.date || data.date === bookingDateStr) {
-          setMenu(null); // Immediately clear — no weekly fallback shown
+          setMenu(null); 
+          setSelectedMeals([]);
+          setMealQty({});
           toast('Menu for tomorrow was removed by Admin', { icon: '🗑️' });
         }
+        // Always refresh weekly menu just in case
+        fetchWeeklyMenu();
       } else {
         toast('Menu was updated by Admin', { icon: '🍽️' });
         fetchMenu(bookingOffset);
@@ -134,7 +138,7 @@ const StudentDashboard = () => {
 
   // 3. LAZY LOADING - Only fetch what the user asks for when they click a tab to dramatically reduce loading times
   useEffect(() => {
-    if (activeTab === 'menu') fetchMenu(bookingOffset);
+    if (activeTab === 'menu') { fetchMenu(bookingOffset); fetchActiveBookings(); }
     else if (activeTab === 'history') fetchHistory();
     else if (activeTab === 'complaints') fetchComplaints();
     else if (activeTab === 'polls') fetchPolls();
@@ -153,6 +157,8 @@ const StudentDashboard = () => {
     try { const { data } = await api.get('/student/me'); setProfile(data); } catch (err) { }
   };
 
+  const [menuDeadlinePassed, setMenuDeadlinePassed] = useState(false);
+
   const fetchMenu = async (offset = 0) => {
     try {
       const targetDate = new Date();
@@ -160,8 +166,12 @@ const StudentDashboard = () => {
       const dateStr = formatDateLocal(targetDate);
       const { data } = await api.get(`/admin/menu/${dateStr}`);
       setMenu(data);
+      setMenuDeadlinePassed(false);
     } catch (err) {
-      setMenu(null); // Explicitly clear menu if not published
+      setMenu(null);
+      // Check if it's a deadline-passed error (404 with specific message)
+      const msg = err.response?.data?.message || '';
+      setMenuDeadlinePassed(msg.toLowerCase().includes('deadline'));
     }
   };
 
@@ -226,6 +236,15 @@ const StudentDashboard = () => {
   };
 
   const handleMealToggle = (mealName) => {
+    // Check if tomorrow's booking already includes this meal
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + bookingOffset);
+    const dateStr = formatDateLocal(targetDate);
+    const existing = activeBookings.find(b => b.date === dateStr);
+    if (existing && existing.codes && Object.keys(existing.codes).some(k => k === mealName)) {
+      toast('Meal already booked! Check your active bookings.', { icon: '✅' });
+      return;
+    }
     setSelectedMeals(prev => prev.includes(mealName) ? prev.filter(m => m !== mealName) : [...prev, mealName]);
   };
 
@@ -275,7 +294,12 @@ const StudentDashboard = () => {
       const dateStr = formatDateLocal(targetDate);
       const { data } = await api.post('/student/book', { date: dateStr, meals: mealsWithQty, isGuest, mealQty });
       toast.success(data.message);
-      setSelectedMeals([]); setMealQty({}); fetchProfile(); fetchHistory();
+      setSelectedMeals([]); 
+      setMealQty({}); 
+      fetchProfile(); 
+      fetchActiveBookings(); 
+      setActiveTab('booked');
+      fetchHistory();
     } catch (err) { toast.error(err.response?.data?.message || 'Booking failed'); }
   };
 
@@ -400,7 +424,7 @@ const StudentDashboard = () => {
         ? (menu.deadline.includes('T') ? new Date(menu.deadline).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : menu.deadline)
         : '—';
 
-      const existingBooking = history.find(b => b.date === dateStrForCheck);
+      const existingBooking = activeBookings.find(b => b.date === dateStrForCheck);
 
       return (
         <div>
@@ -444,14 +468,44 @@ const StudentDashboard = () => {
                   </div>
                 )}
               </div>
+              <button 
+                onClick={() => setActiveTab('booked')} 
+                style={{ 
+                  marginLeft: 'auto', 
+                  background: 'rgba(46, 213, 115, 0.1)', 
+                  border: '1px solid rgba(46, 213, 115, 0.3)', 
+                  color: '#2ed573', 
+                  padding: '8px 16px', 
+                  borderRadius: '10px', 
+                  cursor: 'pointer', 
+                  fontSize: '0.85rem', 
+                  fontWeight: 'bold',
+                  transition: '0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(46, 213, 115, 0.2)'}
+                onMouseOut={(e) => e.currentTarget.style.background = 'rgba(46, 213, 115, 0.1)'}
+              >
+                View My Pass →
+              </button>
             </div>
           )}
 
           {!menu ? (
-            <div style={{ background: 'var(--surface-color)', padding: '40px', borderRadius: '12px', textAlign: 'center' }}>
-              <p style={{ fontSize: '2rem' }}>🚫</p>
-              <h4 style={{ marginTop: '10px' }}>No Menu Published Yet</h4>
-              <p style={{ color: 'var(--text-secondary)', marginTop: '5px' }}>Admin hasn't set tomorrow's menu. Check back later.</p>
+            <div style={{ background: 'var(--surface-color)', padding: '50px 40px', borderRadius: '12px', textAlign: 'center' }}>
+              {menuDeadlinePassed ? (
+                <>
+                  <p style={{ fontSize: '2.5rem' }}>🔒</p>
+                  <h4 style={{ marginTop: '10px', color: 'white' }}>Booking Window Closed</h4>
+                  <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '0.95rem' }}>The booking deadline for this date has passed. You can no longer order meals for this day.</p>
+                  <p style={{ color: '#555', marginTop: '10px', fontSize: '0.82rem' }}>Already booked? View your passes in the <strong style={{ color: 'var(--primary-color)', cursor: 'pointer' }} onClick={() => setActiveTab('booked')}>Booked Meals</strong> tab.</p>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontSize: '2rem' }}>🚫</p>
+                  <h4 style={{ marginTop: '10px' }}>No Menu Published Yet</h4>
+                  <p style={{ color: 'var(--text-secondary)', marginTop: '5px' }}>Admin hasn't set tomorrow's menu. Check back later.</p>
+                </>
+              )}
             </div>
           ) : (
             <div>
@@ -475,18 +529,35 @@ const StudentDashboard = () => {
               )}
 
               {/* Meal Sections */}
-              {MEAL_SECTIONS.map(section => {
-                // Check if any meal in this section is actually available in the filtered menu.items
-                const availableMeals = section.meals.filter(m => menu.items[m]);
-                if (availableMeals.length === 0) return null;
+              {(() => {
+                const sectionsWithMeals = MEAL_SECTIONS.map(section => {
+                  const availableMeals = section.meals.filter(m => {
+                    const exists = menu.items[m];
+                    const isBooked = existingBooking && existingBooking.codes && Object.keys(existingBooking.codes).some(k => k === m);
+                    return exists && !isBooked;
+                  });
+                  return { ...section, availableMeals };
+                }).filter(s => s.availableMeals.length > 0);
 
-                return (
+                if (sectionsWithMeals.length === 0) {
+                  return (
+                    <div style={{ background: 'var(--surface-color)', padding: '50px 30px', borderRadius: '20px', textAlign: 'center', border: '1px dashed #444', marginTop: '10px' }}>
+                      <p style={{ fontSize: '3rem', margin: '0 0 15px 0' }}>📦</p>
+                      <h3 style={{ margin: 0, color: 'white' }}>All Meals Booked!</h3>
+                      <p style={{ color: '#888', marginTop: '8px', fontSize: '0.95rem' }}>You have already booked everything available for tomorrow. You can view your pass in the <strong>Booked Meals</strong> tab.</p>
+                      <button onClick={() => setActiveTab('booked')} style={{ marginTop: '20px', background: 'var(--primary-color)', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>View My Pass →</button>
+                    </div>
+                  );
+                }
+
+                return sectionsWithMeals.map(section => (
                   <div key={section.label} style={{ marginBottom: '20px' }}>
                     <h5 style={{ color: '#888', marginBottom: '10px', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>{section.label}</h5>
                     <div style={{ display: 'grid', gap: '10px' }}>
-                      {availableMeals.map(mealName => {
+                      {section.availableMeals.map(mealName => {
                         const item = menu.items[mealName];
                         const selected = selectedMeals.includes(mealName);
+                        // No need for isBooked here as we filtered them out
                         const isQty = isQuantityMeal(mealName);
                         const qty = getQty(mealName);
                         const color = MEAL_COLORS[mealName] || 'var(--primary-color)';
@@ -524,31 +595,46 @@ const StudentDashboard = () => {
                       })}
                     </div>
                   </div>
+                ));
+              })()}
+
+              {/* Guest Toggle + Total + Book Button - Shown only if some meals are selectable */}
+              {(() => {
+                const anySelectable = MEAL_SECTIONS.flatMap(s => s.meals).some(m => {
+                  const exists = menu.items[m];
+                  const isBooked = existingBooking && existingBooking.codes && Object.keys(existingBooking.codes).some(k => k === m);
+                  return exists && !isBooked;
+                });
+
+                if (!anySelectable) return null;
+
+                return (
+                  <div style={{ marginTop: '20px' }}>
+                    {/* Guest toggle */}
+                    <div onClick={() => setIsGuest(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: isGuest ? '#1a260f' : '#1a1a1a', border: `1.5px solid ${isGuest ? '#2ed573' : '#333'}`, padding: '14px 18px', borderRadius: '12px', cursor: 'pointer', marginBottom: '15px', transition: '0.2s' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: isGuest ? '#2ed573' : '#2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>👥</div>
+                      <div style={{ flex: 1 }}>
+                        <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Book for Guest</h4>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '2px' }}>1.5× price markup applies</p>
+                      </div>
+                      <div style={{ width: '28px', height: '16px', borderRadius: '8px', background: isGuest ? '#2ed573' : '#444', position: 'relative', transition: '0.3s' }}>
+                        <div style={{ width: '12px', height: '12px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: isGuest ? '14px' : '2px', transition: '0.3s' }}></div>
+                      </div>
+                    </div>
+
+                    {/* Total + Book Button */}
+                    <div style={{ background: 'linear-gradient(135deg, #1a0a00, #2a1200)', border: '1px solid #ff7b0088', padding: '20px 25px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <p style={{ color: '#888', fontSize: '0.85rem', margin: 0 }}>{selectedMeals.length} meal{selectedMeals.length !== 1 ? 's' : ''} selected {isGuest ? '(Guest)' : ''}</p>
+                        <h2 style={{ margin: '5px 0 0', color: 'var(--primary-color)' }}>₹{calculateTotal()}</h2>
+                      </div>
+                      <button onClick={handleBookMeals} style={{ background: selectedMeals.length > 0 ? 'var(--primary-color)' : '#333', color: 'white', border: 'none', padding: '15px 30px', borderRadius: '10px', cursor: selectedMeals.length > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '1rem', transition: '0.2s' }}>
+                        {selectedMeals.length > 0 ? '✅ Confirm & Pay' : 'Select Meals First'}
+                      </button>
+                    </div>
+                  </div>
                 );
-              })}
-
-              {/* Guest toggle */}
-              <div onClick={() => setIsGuest(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: isGuest ? '#1a260f' : '#1a1a1a', border: `1.5px solid ${isGuest ? '#2ed573' : '#333'}`, padding: '14px 18px', borderRadius: '12px', cursor: 'pointer', marginBottom: '20px', transition: '0.2s' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: isGuest ? '#2ed573' : '#2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>👥</div>
-                <div style={{ flex: 1 }}>
-                  <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Book for Guest</h4>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '2px' }}>1.5× price markup applies</p>
-                </div>
-                <div style={{ width: '28px', height: '16px', borderRadius: '8px', background: isGuest ? '#2ed573' : '#444', position: 'relative', transition: '0.3s' }}>
-                  <div style={{ width: '12px', height: '12px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: isGuest ? '14px' : '2px', transition: '0.3s' }}></div>
-                </div>
-              </div>
-
-              {/* Total + Book Button */}
-              <div style={{ background: 'linear-gradient(135deg, #1a0a00, #2a1200)', border: '1px solid #ff7b0088', padding: '20px 25px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <p style={{ color: '#888', fontSize: '0.85rem', margin: 0 }}>{selectedMeals.length} meal{selectedMeals.length !== 1 ? 's' : ''} selected {isGuest ? '(Guest)' : ''}</p>
-                  <h2 style={{ margin: '5px 0 0', color: 'var(--primary-color)' }}>₹{calculateTotal()}</h2>
-                </div>
-                <button onClick={handleBookMeals} style={{ background: selectedMeals.length > 0 ? 'var(--primary-color)' : '#333', color: 'white', border: 'none', padding: '15px 30px', borderRadius: '10px', cursor: selectedMeals.length > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '1rem', transition: '0.2s' }}>
-                  {selectedMeals.length > 0 ? '✅ Confirm & Pay' : 'Select Meals First'}
-                </button>
-              </div>
+              })()}
             </div>
           )}
         </div>
@@ -737,7 +823,7 @@ const StudentDashboard = () => {
                         </div>
                         <div>
                           <strong style={{ display: 'block', fontSize: '1.1rem', color: '#ffffff' }}>{cp.studentName}</strong>
-                          <span style={{ fontSize: '0.85rem', color: '#777' }}>{new Date(cp.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                          <span style={{ fontSize: '0.85rem', color: '#777' }}>{cp.createdAt ? new Date(cp.createdAt).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recently'}</span>
                         </div>
                       </div>
                       <span style={{ background: statusBg, color: statusColor, padding: '8px 16px', borderRadius: '25px', fontSize: '0.85rem', fontWeight: '700', border: `1px solid ${statusBg}` }}>
@@ -1041,8 +1127,8 @@ const StudentDashboard = () => {
       return (
         <div>
           <div style={{ background: 'linear-gradient(135deg, #1a1a1a, #222)', padding: '20px 25px', borderRadius: '12px', marginBottom: '20px', borderLeft: '4px solid #2ed573' }}>
-            <h3 style={{ margin: 0, fontSize: '1.3rem' }}>✅ Your Booked Meals</h3>
-            <p style={{ color: 'var(--text-secondary)', marginTop: '5px', fontSize: '0.9rem' }}>Show these 4-digit codes at the counter to verify your meal.</p>
+            <h3 style={{ margin: 0, fontSize: '1.3rem' }}>🎫 Your Upcoming Meal Passes</h3>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '5px', fontSize: '0.9rem' }}>Show your Daily Pass QR code at the counter to verify and receive your meal.</p>
           </div>
 
           {activeBookings.length === 0 ? (
@@ -1057,8 +1143,8 @@ const StudentDashboard = () => {
                 <div key={b._id} style={{ background: 'var(--surface-color)', borderRadius: '15px', padding: '20px', border: '1px solid #333' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #222', paddingBottom: '10px' }}>
                     <div>
-                      <h4 style={{ color: '#2ed573', margin: 0 }}>Date: {new Date(b.date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}</h4>
-                      <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '2px' }}>Booked on: {new Date(b.createdAt).toLocaleString()}</p>
+                      <h4 style={{ color: '#2ed573', margin: 0 }}>Date: {new Date(b.date.replace(/-/g, '/')).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })} {b.isGuest && <span style={{ color: 'var(--primary-color)', fontSize: '0.85rem', marginLeft: '10px' }}>(Guest)</span>}</h4>
+                      <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '2px' }}>Booked on: {b.createdAt ? new Date(b.createdAt).toLocaleString('en-IN') : 'N/A'}</p>
                     </div>
                     <button onClick={() => handleCancelBooking(b._id)} style={{ padding: '8px 15px', background: '#ff475722', color: '#ff4757', border: '1.5px solid #ff475755', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', transition: '0.2s' }}>✕ Cancel Booking</button>
                   </div>
