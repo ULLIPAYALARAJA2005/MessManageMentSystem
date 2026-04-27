@@ -8,8 +8,14 @@ from socket_instance import socketio
 load_dotenv()
 
 app = Flask(__name__)
-# Enable CORS for frontend
-CORS(app)
+
+# Allowed origins: local dev + production frontend
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    os.getenv("FRONTEND_URL", "")  # Set this on Render: https://your-app.vercel.app
+]
+
+CORS(app, origins=[o for o in ALLOWED_ORIGINS if o])
 app.config['SECRET_KEY'] = os.getenv("JWT_SECRET", "super_secret_key")
 
 socketio.init_app(app)
@@ -43,4 +49,9 @@ from background_tasks import start_scheduler
 
 if __name__ == '__main__':
     start_scheduler()
-    socketio.run(app, host='127.0.0.1', debug=True, port=5000, allow_unsafe_werkzeug=True)
+    # In production (Render), host=0.0.0.0 and PORT from env; locally stays on 127.0.0.1:5000
+    is_production = os.getenv("FLASK_ENV") == "production"
+    host = '0.0.0.0' if is_production else '127.0.0.1'
+    port = int(os.getenv("PORT", 5000))
+    debug = not is_production
+    socketio.run(app, host=host, debug=debug, port=port, allow_unsafe_werkzeug=True)
