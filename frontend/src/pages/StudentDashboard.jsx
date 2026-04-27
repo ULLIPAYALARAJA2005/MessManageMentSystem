@@ -240,8 +240,9 @@ const StudentDashboard = () => {
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + bookingOffset);
     const dateStr = formatDateLocal(targetDate);
-    const existing = activeBookings.find(b => b.date === dateStr);
-    if (existing && existing.codes && Object.keys(existing.codes).some(k => k === mealName)) {
+    const existingBookingsForDay = activeBookings.filter(b => b.date === dateStr);
+    const isAlreadyBooked = existingBookingsForDay.some(b => b.codes && Object.keys(b.codes).includes(mealName));
+    if (isAlreadyBooked) {
       toast('Meal already booked! Check your active bookings.', { icon: '✅' });
       return;
     }
@@ -424,7 +425,7 @@ const StudentDashboard = () => {
         ? (menu.deadline.includes('T') ? new Date(menu.deadline).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : menu.deadline)
         : '—';
 
-      const existingBooking = activeBookings.find(b => b.date === dateStrForCheck);
+      const existingBookingsForDay = activeBookings.filter(b => b.date === dateStrForCheck);
 
       return (
         <div>
@@ -444,13 +445,13 @@ const StudentDashboard = () => {
           </div>
 
           {/* Already-booked banner — shown on top of menu, not replacing it */}
-          {existingBooking && (
+          {existingBookingsForDay.length > 0 && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: '14px',
-              background: existingBooking.isAutoBooked
+              background: existingBookingsForDay.some(b => b.isAutoBooked)
                 ? 'linear-gradient(135deg, #10b98108, #04785708)'
                 : 'linear-gradient(135deg, #1e3a2208, #0a2208)',
-              border: `1.5px solid ${existingBooking.isAutoBooked ? '#10b98155' : '#2ed57355'}`,
+              border: `1.5px solid ${existingBookingsForDay.some(b => b.isAutoBooked) ? '#10b98155' : '#2ed57355'}`,
               borderRadius: '12px', padding: '16px 20px', marginBottom: '20px'
             }}>
               <span style={{ fontSize: '2rem' }}>✅</span>
@@ -458,7 +459,7 @@ const StudentDashboard = () => {
                 <div style={{ fontWeight: '800', fontSize: '1rem', color: '#e2e8f0' }}>
                   Meal Already Booked for {dateLabel}
                 </div>
-                {existingBooking.isAutoBooked ? (
+                {existingBookingsForDay.some(b => b.isAutoBooked) ? (
                   <div style={{ fontSize: '0.82rem', color: '#10b981', marginTop: '3px' }}>
                     ⚡ Auto Delivery System reserved this meal automatically
                   </div>
@@ -533,8 +534,8 @@ const StudentDashboard = () => {
                 const sectionsWithMeals = MEAL_SECTIONS.map(section => {
                   const availableMeals = section.meals.filter(m => {
                     const exists = menu.items[m];
-                    const isBooked = existingBooking && existingBooking.codes && Object.keys(existingBooking.codes).some(k => k === m);
-                    return exists && !isBooked;
+                    // Do not hide booked items, just check if it exists in the menu
+                    return exists;
                   });
                   return { ...section, availableMeals };
                 }).filter(s => s.availableMeals.length > 0);
@@ -557,7 +558,7 @@ const StudentDashboard = () => {
                       {section.availableMeals.map(mealName => {
                         const item = menu.items[mealName];
                         const selected = selectedMeals.includes(mealName);
-                        // No need for isBooked here as we filtered them out
+                        const isBooked = existingBookingsForDay.some(b => b.codes && Object.keys(b.codes).includes(mealName));
                         const isQty = isQuantityMeal(mealName);
                         const qty = getQty(mealName);
                         const color = MEAL_COLORS[mealName] || 'var(--primary-color)';
@@ -575,7 +576,10 @@ const StudentDashboard = () => {
                             </div>
                             {/* Info */}
                             <div style={{ flex: 1 }}>
-                              <h4 style={{ margin: 0, fontSize: '1rem', color: selected ? 'white' : '#ccc' }}>{mealName}</h4>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <h4 style={{ margin: 0, fontSize: '1rem', color: selected ? 'white' : '#ccc' }}>{mealName}</h4>
+                                {isBooked && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2ecc71', boxShadow: '0 0 5px #2ecc71' }} title="Already Booked"></div>}
+                              </div>
                               <p style={{ color: selected ? '#aaa' : '#666', fontSize: '0.85rem', marginTop: '2px' }}>{item.name || 'Item TBD'}</p>
                             </div>
                             {/* Price + Qty */}
@@ -602,7 +606,7 @@ const StudentDashboard = () => {
               {(() => {
                 const anySelectable = MEAL_SECTIONS.flatMap(s => s.meals).some(m => {
                   const exists = menu.items[m];
-                  const isBooked = existingBooking && existingBooking.codes && Object.keys(existingBooking.codes).some(k => k === m);
+                  const isBooked = existingBookingsForDay.some(b => b.codes && Object.keys(b.codes).includes(m));
                   return exists && !isBooked;
                 });
 
